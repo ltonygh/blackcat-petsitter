@@ -35,3 +35,21 @@
   - `withTenant(B)` returns only B's user.
   - No tenant context returns zero rows (RLS enforced).
   - `withTenant` throws on falsy `organizationId`.
+
+## Day 3 (10 Oct)
+
+- Wired **NextAuth v5 (Auth.js)** to the database.
+- Splited auth config into two files:
+  - `auth.config.ts` targets providers and route protection without database import to ensure edge-safety.
+  - `auth.ts` extends the config with database-backed callbacks to optimize Node runtime.
+  - `middleware.ts` uses `auth.config.ts` and runs on the Edge runtime, which cannot import the Postgres driver. Keeping the database-touching callbacks in `auth.ts` avoids pulling `postgres` into the Edge bundle.
+- Ran multi-tenant isolation tests (7/7 passing) with 3 new additions:
+  - Returns user A when queried within A's organization
+  - Returns null for a cross-tenant read (A's context, B's user id)
+  - Throws when missing `organizationId`
+- Created `/dashboard` to verify end-to-end Google OAuth login and confirm RLS-scoped reads yield the correct content.
+- Added NextAuth v5's `AUTH_GOOGLE_ID` and `AUTH_GOOGLE_SECRET` to align with NextAuth v5's provider convention.
+  - Addresses the `401 invalid_client` during Google OAuth login when only v4's name exists at the moment.
+  - v4 is retained for compatibility with other tools.
+- Initialized new GCP project to differentiate from the Chrome Extension project.
+  - Originally set Client ID in the Chrome Extension project, resulting in OAuth asking for permissions as the Chrome Extension instead of the current Web Application project.
