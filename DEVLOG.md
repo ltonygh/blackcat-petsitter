@@ -53,3 +53,39 @@
   - v4 is retained for compatibility with other tools.
 - Initialized new GCP project to differentiate from the Chrome Extension project.
   - Originally set Client ID in the Chrome Extension project, resulting in OAuth asking for permissions as the Chrome Extension instead of the current Web Application project.
+
+## Day 4 (11 Oct)
+
+- Added object storage (Cloudflare R2) for pet documents and pet icons.
+- Schema (`db/schema.ts`, migration `drizzle/0003_pet_documents.sql`):
+  - New `pet_documents` table (`type` CHECK in `vaccination | weight_proof | pet_icon | medical | other`).
+  - Partial indexes `(pet_id)` and `(type)` `WHERE deleted_at IS NULL`.
+  - Partial unique index `uniq_pet_icon_active` enforcing one active `pet_icon` per pet.
+  - Nullable `pets.icon_key` (stock ref e.g. `stock/dog-01.png`, or uploaded key `pets/{petId}/pet_icon/{uuid}.jpg`); backfilled by type in the same migration.
+  - `pet_documents` intentionally has **no RLS**: isolation is inherited via `pet_id -> pets.user_id -> users.organization_id`, enforced in app code. Documented in the schema comment.
+- R2 client (`lib/r2.ts`): presigned PUT/GET, `publicUrl`, `headObject`, `getObjectRange`, `putObject`, `deleteObject`, `moveObject` (copy+delete). Signed `ContentType` + `ContentLength` so R2 enforces them.
+- Upload flow (all uploads start in `quarantine/{petId}/{type}/{uuid}.{ext}`):
+  - `POST /api/upload/presign` — validates type/mime/size, conditional rules, pet ownership; rate-limited (10/hour, 50/day, in-memory Map).
+  - `POST /api/upload/confirm` — verifies quarantine prefix, size (±5%), magic bytes; re-encodes images with sharp (strips EXIF/scripts/polyglots); promotes to `pets/{petId}/{type}/...`; handles icon uniqueness and `r2_key` unique violations.
+  - `GET /api/pets/[petId]/documents` — lists live docs; cross-tenant pet → 404 (no existence leak).
+  - `DELETE /api/documents/[documentId]` — soft delete; resets `pets.icon_key` to the stock default if it was the icon. R2 object kept for a later scheduled cleanup.
+- **Important isolation finding:** `pets` and `pet_documents` have no RLS, and Postgres FK checks bypass RLS — a bare `SELECT ... FROM pets WHERE id=$1` under a tenant GUC is **not** scoped. All query helpers in `db/queries/pets.ts` therefore JOIN through the RLS-protected `users` table and filter on `users.organization_id`; inserts/deletes pre-check ownership in the same transaction. Caught by the cross-tenant tests.
+- Tests: `db/auth-tenant.test.ts` extended to 13 cases (cross-tenant pet/document isolation, conditional rules, quarantine-prefix check, icon uniqueness). Full suite **17/17 passing**; `tsc --noEmit` clean.
+- Added `@aws-sdk/client-s3`, `@aws-sdk/s3-request-presigner`, `sharp`; bumped `@types/node` to `^24` to resolve a pre-existing `vitest` peer-dependency conflict.
+- Added R2 env vars to `env.example`.
+
+---
+
+## Technology Stack
+
+| Component | Technology | Justification |
+| --- | --- | --- |
+| Frontend | Next.js (React) | 
+| Backend | Node.js |
+| Data Storage | Neon PostgreSQL with Drizzle ORM | Supports multi-tenancy and concurrent writing. |
+| Object Storing | R2 Object Storage | Stores user-uploaded pet documents/icons, avoiding size inflation in Neon. Only the object **key** (`r2_key`) is stored in Postgres; the public URL is derived at read time. |
+| CI/CD | GitHub |
+| Deployment and Hosting | Fly.io | Low latency with deployment at `sin`. (Originally planned to deploy at `hkg`, but deprecated since Sep 2025.) |
+| Email | Resend | Supports email transaction within free tier's quota. |
+| Instagram Feed-fetching | Behold.so | Allows live feed display, but requires caching at regular intervals to avoid heavy API calls. |
+| Authorization and Security | Google OAuth |

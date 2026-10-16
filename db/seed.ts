@@ -137,6 +137,7 @@ async function seed() {
         vaccinated: true,
         sterilized: true,
         notes: "Shy with strangers.",
+        iconKey: "stock/cat-default.png",
       },
       {
         userId: userRow.id,
@@ -148,6 +149,7 @@ async function seed() {
         vaccinated: true,
         sterilized: false,
         notes: "Loves long walks.",
+        iconKey: "stock/dog-default.png",
       },
     ]);
 

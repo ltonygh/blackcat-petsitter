@@ -151,6 +151,10 @@ export const pets = pgTable("pets", {
   vaccinated: boolean("vaccinated"),
   sterilized: boolean("sterilized"),
   notes: text("notes"),
+  // Either a stock icon reference (e.g. 'stock/dog-01.png') or a user-uploaded
+  // R2 key (e.g. 'pets/{petId}/pet_icon/{uuid}.jpg'). Nullable at the DB level;
+  // application code defaults it by pet type on creation (see lib/pet-icons.ts).
+  iconKey: text("icon_key"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -190,6 +194,47 @@ export const reports = pgTable("reports", {
     .notNull()
     .defaultNow(),
 });
+
+// NOTE ON TENANT ISOLATION (pet_documents):
+// -----------------------------------------------------------------------------
+// `pet_documents` deliberately has NO Row-Level Security and NO organization_id
+// column. This matches the established pattern for `pets`, `addresses`,
+// `reports` and `booking_events`: tenancy is NOT enforced by a DB policy on
+// this table, but INHERITED through the `pet_id -> pets.user_id -> users
+// .organization_id` chain, and enforced at the application layer by ALWAYS
+// accessing it through `withTenant(organizationId, ...)`. Because `withTenant`
+// switches to the non-privileged `app_tenant` role and sets
+// `app.current_organization_id`, the parent `users`/`pets` rows the joins walk
+// through are themselves RLS-filtered, so a cross-tenant pet is simply not
+// visible and any insert/select scoped to the wrong tenant touches zero rows.
+//
+// DO NOT enable RLS here and DO NOT query this table outside `withTenant`.
+// -----------------------------------------------------------------------------
+export const petDocuments = pgTable("pet_documents", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  petId: uuid("pet_id")
+    .notNull()
+    .references(() => pets.id, { onDelete: "cascade" }),
+  // Document kind. 'pet_icon' is a regular document that also drives
+  // pets.icon_key (one active icon per pet, enforced by a partial unique
+  // index created in the migration SQL).
+  type: text("type").notNull(),
+  r2Key: text("r2_key").notNull().unique(),
+  originalFilename: text("original_filename"),
+  mimeType: text("mime_type").notNull(),
+  sizeBytes: integer("size_bytes").notNull(),
+  uploadedBy: uuid("uploaded_by")
+    .notNull()
+    .references(() => users.id, { onDelete: "restrict" }),
+  uploadedAt: timestamp("uploaded_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  notes: text("notes"),
+});
+// Partial indexes (WHERE deleted_at IS NULL) and the one-active-icon unique
+// index are authored in drizzle/0003_pet_documents.sql, consistent with how
+// RLS policies are authored (plain, inspectable SQL).
 
 // Geocoding/classification cache keyed by a hash of the address.
 export const addressCache = pgTable("address_cache", {
@@ -263,9 +308,21 @@ export const bookingEventsRelations = relations(bookingEvents, ({ one }) => ({
   }),
 }));
 
-export const petsRelations = relations(pets, ({ one }) => ({
+export const petsRelations = relations(pets, ({ one, many }) => ({
   user: one(users, {
     fields: [pets.userId],
+    references: [users.id],
+  }),
+  documents: many(petDocuments),
+}));
+
+export const petDocumentsRelations = relations(petDocuments, ({ one }) => ({
+  pet: one(pets, {
+    fields: [petDocuments.petId],
+    references: [pets.id],
+  }),
+  uploader: one(users, {
+    fields: [petDocuments.uploadedBy],
     references: [users.id],
   }),
 }));
