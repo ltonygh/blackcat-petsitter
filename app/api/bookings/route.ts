@@ -167,6 +167,13 @@ export async function POST(request: Request) {
   };
 
   const petData: InlinePetData = {
+    // Optional existing saved pet to link (backend uses the stored pet and
+    // ignores the client-supplied type when present).
+    petId:
+      typeof petDataRaw.petId === "string" &&
+      petDataRaw.petId.trim().length > 0
+        ? petDataRaw.petId.trim()
+        : null,
     name: petDataRaw.name.trim(),
     type: petDataRaw.type.trim(),
     breed:

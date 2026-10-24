@@ -38,7 +38,8 @@ function asRecord(v: unknown): Record<string, unknown> | null {
  * GET /api/users/me/profile
  *
  * Returns the caller's detailed profile:
- *   { address: { id, estatePassword, keycardInfo, foodAmount, ... } | null,
+ *   { addresses: [{ id, estatePassword, keycardInfo, foodAmount, ... }],
+ *     address: <first address | null>  // back-compat
  *     pets: [{ id, name, type, age, gender, habits }] }
  */
 export async function GET() {

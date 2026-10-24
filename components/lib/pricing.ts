@@ -20,6 +20,8 @@ export interface ServiceMeta {
   subtitle: string;
   icon: string;
   duration: string;
+  /** Numeric slot length in minutes — drives the auto-computed end time. */
+  durationMinutes: number;
   petType: "dog" | "cat";
 }
 
@@ -30,6 +32,7 @@ export const SERVICE_META: Record<ServiceType, ServiceMeta> = {
     subtitle: "Dog Sitting",
     icon: "\u{1F415}",
     duration: "45–60 分鐘",
+    durationMinutes: 60,
     petType: "dog",
   },
   "Cat Sitting (Standard)": {
@@ -38,6 +41,7 @@ export const SERVICE_META: Record<ServiceType, ServiceMeta> = {
     subtitle: "Cat Sitting (Standard)",
     icon: "\u{1F408}",
     duration: "45–60 分鐘",
+    durationMinutes: 60,
     petType: "cat",
   },
   "Cat Sitting (Express)": {
@@ -46,6 +50,7 @@ export const SERVICE_META: Record<ServiceType, ServiceMeta> = {
     subtitle: "Cat Sitting (Express)",
     icon: "\u{26A1}",
     duration: "15–20 分鐘",
+    durationMinutes: 20,
     petType: "cat",
   },
 };

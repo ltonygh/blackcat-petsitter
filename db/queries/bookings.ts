@@ -306,6 +306,13 @@ export async function getBookingForCalendar(
 /* -------------------------------------------------------------------------- */
 
 export type InlinePetData = {
+  /**
+   * Optional id of an EXISTING saved pet owned by the caller. When provided
+   * (and owned by the caller), the booking links that pet and uses its stored
+   * `type` — the client-supplied `type` is ignored. This prevents a saved
+   * pet (e.g. type "other") from being overwritten by a service-derived type.
+   */
+  petId?: string | null;
   name: string;
   type: string;
   breed?: string | null;
@@ -388,22 +395,45 @@ export async function createBookingInline(
     const finalUserId = resolved.userId;
 
     const p = input.petData;
-    const [pet] = await tx
-      .insert(pets)
-      .values({
-        userId: finalUserId,
-        name: p.name,
-        type: p.type,
-        breed: p.breed ?? null,
-        weightKg: p.weightKg === undefined || p.weightKg === null ? null : String(p.weightKg),
-        vaccinated: p.vaccinated ?? null,
-        sterilized: p.sterilized ?? null,
-        contagious: p.contagious ?? false,
-        appearance: p.appearance ?? null,
-        notes: p.notes ?? null,
-        iconKey: defaultIconKey(p.type),
-      })
-      .returning({ id: pets.id });
+
+    // Resolve or create the pet.
+    //
+    // If the caller references an EXISTING saved pet (p.petId) that they own
+    // in this tenant, we link that pet as-is and IGNORE the client-supplied
+    // type/name. This stops a saved pet (e.g. type "other") from being
+    // overwritten by the type the frontend derives from the chosen service.
+    let petId: string;
+    if (p.petId) {
+      const owned = await petBelongsToUser(tx, organizationId, finalUserId, p.petId);
+      if (!owned) {
+        const err = new Error("Pet not found for this user") as Error & {
+          code?: string;
+        };
+        err.code = "P0001";
+        throw err;
+      }
+      petId = p.petId;
+    } else {
+      // No existing pet: create one from the supplied data. `type` is taken
+      // verbatim from the payload (never derived from serviceType).
+      const [created] = await tx
+        .insert(pets)
+        .values({
+          userId: finalUserId,
+          name: p.name,
+          type: p.type,
+          breed: p.breed ?? null,
+          weightKg: p.weightKg === undefined || p.weightKg === null ? null : String(p.weightKg),
+          vaccinated: p.vaccinated ?? null,
+          sterilized: p.sterilized ?? null,
+          contagious: p.contagious ?? false,
+          appearance: p.appearance ?? null,
+          notes: p.notes ?? null,
+          iconKey: defaultIconKey(p.type),
+        })
+        .returning({ id: pets.id });
+      petId = created.id;
+    }
 
     const [address] = await tx
       .insert(addresses)
@@ -420,7 +450,7 @@ export async function createBookingInline(
       .values({
         organizationId,
         userId: finalUserId,
-        petId: pet.id,
+        petId,
         addressId: address.id,
         serviceType: input.serviceType,
         startTime: input.startTime,

@@ -12,6 +12,7 @@ export type BookingStatus =
   | "pending"
   | "accepted"
   | "time_proposed"
+  | "verification_pending"
   | "paid"
   | "completed"
   | "cancelled"
@@ -30,21 +31,26 @@ export interface Pet {
   name: string;
   type: "cat" | "dog" | "other";
   breed: string | null;
-  weightKg: number | null;
+  /** Drizzle `numeric` serializes as a decimal string (e.g. "4.50"). */
+  weightKg: string | null;
   gender: string | null;
-  vaccinated: boolean;
-  sterilized: boolean;
+  vaccinated: boolean | null;
+  sterilized: boolean | null;
+  contagious: boolean | null;
+  appearance: string | null;
   notes: string | null;
-  iconKey: string | null; // Stock path (e.g. 'stock/dog-01.png') or R2 key
+  iconKey: string | null;
 }
 
 export interface Booking {
   id: string;
   userId: string;
+  addressId: string;
+  petId: string;
   staffId: string | null;
-  serviceType: string; // e.g. 'Dog Sitting', 'Cat Sitting (Standard)'
-  startTime: string; // ISO string
-  endTime: string; // ISO string
+  serviceType: string;
+  startTime: string;
+  endTime: string;
   status: BookingStatus;
   totalHkd: number;
   conflictFlag: boolean;
@@ -53,6 +59,68 @@ export interface Booking {
   proposalEndTime: string | null;
   proposalReason: string | null;
   proposalStatus: "pending" | "accepted" | "declined" | null;
+  /** Reason recorded when a customer or owner cancels a booking. */
+  cancellationReason: string | null;
+  /**
+   * Guest contact details, stored on the booking row itself. NULL for
+   * logged-in users (their contact data is resolved via `customer`).
+   */
+  guestName: string | null;
+  guestEmail: string | null;
+  guestPhone: string | null;
+}
+
+/** Enriched booking returned by GET /api/bookings (role-scoped). */
+export interface BookingWithDetails extends Booking {
+  /**
+   * Full pet row, eager-loaded server-side (`with: { pet: true }`), so
+   * contagious/appearance/notes are all present.
+   */
+  pet: {
+    id: string;
+    name: string;
+    type: string;
+    iconKey: string | null;
+    breed?: string | null;
+    weightKg?: string | number | null;
+    vaccinated?: boolean | null;
+    sterilized?: boolean | null;
+    contagious?: boolean | null;
+    appearance?: string | null;
+    notes?: string | null;
+  } | null;
+  customer: {
+    id: string;
+    email: string;
+    name: string | null;
+    phone: string | null;
+  } | null;
+  /** Full address row, eager-loaded server-side. */
+  address: {
+    id: string;
+    userId: string;
+    label: string | null;
+    fullAddress: string;
+    doorCode: string | null;
+  } | null;
+}
+
+/**
+ * Full address object. Kept as a distinct name for callers that build an
+ * address independently of a booking.
+ */
+export interface AddressRecord {
+  id: string;
+  userId: string;
+  label: string | null;
+  fullAddress: string;
+  doorCode: string | null;
+}
+
+export interface Address {
+  id: string;
+  label: string | null;
+  fullAddress: string;
 }
 
 export interface PetDocument {

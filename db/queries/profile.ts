@@ -50,6 +50,9 @@ export type DetailedPet = {
 };
 
 export type DetailedProfile = {
+  /** All of the user's addresses (most-recent-first). */
+  addresses: DetailedAddress[];
+  /** Convenience alias for the first address, if any (back-compat). */
   address: DetailedAddress | null;
   pets: DetailedPet[];
 };
@@ -156,8 +159,7 @@ export async function getUserProfileDetail(
           eq(users.organizationId, organizationId),
         ),
       )
-      .orderBy(addresses.createdAt)
-      .limit(1);
+      .orderBy(addresses.createdAt);
 
     // Pets owned by the user (tenant-scoped via join).
     const petRows = await tx
@@ -176,8 +178,10 @@ export async function getUserProfileDetail(
       )
       .orderBy(pets.createdAt);
 
+    const addressesList = addressRows as DetailedAddress[];
     return {
-      address: (addressRows[0] as DetailedAddress | undefined) ?? null,
+      addresses: addressesList,
+      address: addressesList[0] ?? null,
       pets: petRows as DetailedPet[],
     };
   });
@@ -271,8 +275,7 @@ export async function updateProfileDetail(
           eq(users.organizationId, organizationId),
         ),
       )
-      .orderBy(addresses.createdAt)
-      .limit(1);
+      .orderBy(addresses.createdAt);
 
     const petRows = await tx
       .select({
@@ -290,8 +293,10 @@ export async function updateProfileDetail(
       )
       .orderBy(pets.createdAt);
 
+    const addressesList = addressRows as DetailedAddress[];
     return {
-      address: (addressRows[0] as DetailedAddress | undefined) ?? null,
+      addresses: addressesList,
+      address: addressesList[0] ?? null,
       pets: petRows as DetailedPet[],
     };
   });

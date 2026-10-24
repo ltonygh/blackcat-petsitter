@@ -9,7 +9,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import type { BookingWithDetails } from "@/types";
 
 /** Statuses where the customer is still allowed to cancel. */
-const CANCELLABLE = new Set(["pending", "accepted", "time_proposed"]);
+const CANCELLABLE = new Set(["pending", "accepted", "time_proposed", "paid"]);
 
 interface BookingDetailModalProps {
   booking: BookingWithDetails;
@@ -33,11 +33,16 @@ export function BookingDetailModal({
 
   const canCancel = CANCELLABLE.has(booking.status);
   const address = booking.address;
+  // Paid bookings go through a "request" flow with a forfeiture warning.
+  const isPaid = booking.status === "paid";
+  const cancelLabel = isPaid ? "申請取消" : "取消預約";
 
   async function handleCancel() {
     setSubmitting(true);
     setError(null);
     try {
+      // The API has no `cancellation_requested` status yet, so both paths
+      // record a plain cancellation; the reason distinguishes them.
       const { booking: updated } = await apiPatch<{
         booking: BookingWithDetails;
       }>(`/api/bookings/${booking.id}`, {
@@ -133,15 +138,32 @@ export function BookingDetailModal({
             onClick={() => setShowCancel(true)}
             className="rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-red-600 ring-1 ring-red-200 hover:bg-red-50"
           >
-            取消預約
+            {cancelLabel}
           </button>
         )}
 
         {showCancel && (
           <div className="rounded-xl bg-red-50 p-4 ring-1 ring-red-200">
+            {/* 7-day deposit forfeiture policy */}
+            <div
+              role="alert"
+              className="rounded-r-lg border-l-4 border-red-500 bg-red-100 p-3 text-sm text-red-800"
+            >
+              <p className="font-semibold">⚠️ 取消政策提醒</p>
+              <p className="mt-1 text-xs leading-relaxed">
+                如於服務開始前 **7 日內**取消，已繳付的訂金將不獲退還（訂金會被沒收）。
+                如於 7 日前取消，訂金可獲退還或保留作下次預約之用。
+              </p>
+              {isPaid && (
+                <p className="mt-1 text-xs font-medium">
+                  此預約已完成付款，取消申請需由保姆確認。
+                </p>
+              )}
+            </div>
+
             <label
               htmlFor="cancel-reason"
-              className="block text-sm font-semibold text-red-800"
+              className="mt-3 block text-sm font-semibold text-red-800"
             >
               請填寫取消原因
             </label>
@@ -163,7 +185,7 @@ export function BookingDetailModal({
                 disabled={submitting}
                 className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
               >
-                {submitting ? "取消中⋯" : "確認取消預約"}
+                {submitting ? "處理中⋯" : `確認${cancelLabel}`}
               </button>
               <button
                 type="button"

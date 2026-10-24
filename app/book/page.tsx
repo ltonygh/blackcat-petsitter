@@ -7,6 +7,7 @@ import { Stepper, type StepperStep } from "@/components/Stepper";
 import { Modal } from "@/components/Modal";
 import { apiGet, apiPost, ApiError } from "@/components/lib/api";
 import { toIso } from "@/components/lib/format";
+import type { AddressRecord, Pet } from "@/types";
 import {
   calcPrice,
   MAX_CATS,
@@ -22,18 +23,18 @@ const STEPS: StepperStep[] = [
   { id: 4, label: "確認預約" },
 ];
 
-/** Quick-select presets that auto-fill the time inputs. */
+/** Quick-select presets — set the start time only (end is auto-computed). */
 const TIME_PRESETS = [
-  { id: "morning", label: "上午", sub: "Morning", start: "09:00", end: "12:00" },
-  { id: "afternoon", label: "下午", sub: "Afternoon", start: "13:00", end: "17:00" },
-  { id: "evening", label: "晚上", sub: "Evening", start: "18:00", end: "21:00" },
+  { id: "morning", label: "上午", sub: "Morning", start: "09:00" },
+  { id: "afternoon", label: "下午", sub: "Afternoon", start: "13:00" },
+  { id: "evening", label: "晚上", sub: "Evening", start: "18:00" },
 ] as const;
 
 interface WizardState {
   serviceType: ServiceType;
   date: string;
   startTime: string; // HH:mm
-  endTime: string; // HH:mm
+  // NOTE: no endTime — it is derived from startTime + service duration.
   address: string;
   doorCode: string;
   // Contact — guestData when signed out, auto-filled when signed in.
@@ -57,7 +58,6 @@ const INITIAL_STATE: WizardState = {
   serviceType: "Cat Sitting (Standard)",
   date: "",
   startTime: "09:00",
-  endTime: "18:00",
   address: "",
   doorCode: "",
   guestTitle: "",
@@ -78,6 +78,23 @@ const INITIAL_STATE: WizardState = {
 
 const isCatService = (s: ServiceType) => SERVICE_META[s].petType === "cat";
 
+/** Chinese label for a pet type, used in the saved-pet selector fallback. */
+function petTypeLabel(type: string): string {
+  if (type === "dog") return "狗狗";
+  if (type === "cat") return "貓貓";
+  return "其他";
+}
+
+/** Add minutes to an "HH:mm" string, wrapping at midnight. */
+function addMinutes(hhmm: string, minutes: number): string {
+  const [h, m] = hhmm.split(":").map(Number);
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return hhmm;
+  const total = (h * 60 + m + minutes) % (24 * 60);
+  const hh = Math.floor(total / 60);
+  const mm = total % 60;
+  return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+}
+
 /** Subset of GET /api/auth/session we rely on. */
 interface SessionInfo {
   user?: { email?: string | null } | null;
@@ -86,6 +103,10 @@ interface SessionInfo {
 /** Email must contain an @ and a dot in the domain; phone must be 8 digits. */
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const PHONE_RE = /^\d{8}$/;
+
+/** Weight bounds accepted for a dog booking, in kg. */
+const DOG_WEIGHT_MIN = 5;
+const DOG_WEIGHT_MAX = 80;
 
 export default function BookPage() {
   const [step, setStep] = useState(1);
@@ -96,6 +117,14 @@ export default function BookPage() {
 
   // undefined = still resolving, null = guest, string = signed in.
   const [email, setEmail] = useState<string | null | undefined>(undefined);
+
+  // Saved profiles for signed-in users (empty for guests).
+  const [savedAddresses, setSavedAddresses] = useState<AddressRecord[]>([]);
+  const [savedPets, setSavedPets] = useState<Pet[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(
+    null,
+  );
+  const [selectedPetId, setSelectedPetId] = useState<string | null>(null);
 
   // Resolve the session client-side so the page itself stays prerenderable.
   useEffect(() => {
@@ -118,15 +147,81 @@ export default function BookPage() {
     if (email) setState((prev) => ({ ...prev, guestEmail: email }));
   }, [email]);
 
+  /**
+   * Signed-in users pick from saved addresses/pets instead of retyping.
+   * Failed fetches degrade silently to the manual form.
+   */
+  useEffect(() => {
+    if (!email) return;
+    let cancelled = false;
+    (async () => {
+      const [addr, pets] = await Promise.allSettled([
+        apiGet<{ addresses: AddressRecord[] }>("/api/addresses"),
+        apiGet<{ pets: Pet[] }>("/api/pets"),
+      ]);
+      if (cancelled) return;
+      if (addr.status === "fulfilled") {
+        setSavedAddresses(addr.value.addresses ?? []);
+      }
+      if (pets.status === "fulfilled") setSavedPets(pets.value.pets ?? []);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [email]);
+
+  /** Selecting a saved address fills the address + access fields. */
+  const selectAddress = (id: string) => {
+    setSelectedAddressId(id);
+    const found = savedAddresses.find((a) => a.id === id);
+    if (!found) return;
+    setState((prev) => ({
+      ...prev,
+      address: found.fullAddress,
+      doorCode: found.doorCode ?? "",
+    }));
+  };
+
+  /** Selecting a saved pet fills the pet fields known to the API. */
+  const selectPet = (id: string) => {
+    setSelectedPetId(id);
+    const found = savedPets.find((p) => p.id === id);
+    if (!found) return;
+    setState((prev) => ({
+      ...prev,
+      petName: found.name,
+      petBreed: found.breed ?? "",
+      petWeight: found.weightKg != null ? String(found.weightKg) : "",
+      vaccinated: found.vaccinated ?? false,
+      sterilized: found.sterilized ?? false,
+      contagious: found.contagious ?? false,
+      appearance: found.appearance ?? "",
+      petNotes: found.notes ?? "",
+    }));
+  };
+
   const isGuest = email === null;
   const sessionResolved = email !== undefined;
 
   const update = <K extends keyof WizardState>(key: K, value: WizardState[K]) =>
     setState((prev) => ({ ...prev, [key]: value }));
 
-  // Pet type follows the selected service (dog job ≠ cat job).
-  const updateServiceType = (serviceType: ServiceType) =>
+  // Pet type follows the selected service (dog job ≠ cat job). A saved pet
+  // may no longer match the new service type, so drop the selection.
+  const updateServiceType = (serviceType: ServiceType) => {
     setState((prev) => ({ ...prev, serviceType }));
+    setSelectedPetId(null);
+  };
+
+  /**
+   * End time is not user-editable — it is derived from the start time plus
+   * the service's slot length (auto-computed). Recomputed on every render so
+   * it stays correct when either the start time or service changes.
+   */
+  const endTime = addMinutes(
+    state.startTime,
+    SERVICE_META[state.serviceType].durationMinutes,
+  );
 
   const breakdown = calcPrice({
     serviceType: state.serviceType,
@@ -138,7 +233,7 @@ export default function BookPage() {
   const canProceed = (): boolean => {
     switch (step) {
       case 1:
-        return Boolean(state.date && state.startTime && state.endTime);
+        return Boolean(state.date && state.startTime);
       case 2:
         return Boolean(
           state.address.trim() &&
@@ -181,12 +276,26 @@ export default function BookPage() {
     setSubmitting(true);
     try {
       const start = toIso(state.date, state.startTime);
-      const end = toIso(state.date, state.endTime);
+      const end = toIso(state.date, endTime);
       if (!start || !end) throw new ApiError("請選擇有效的日期及時間。", 400);
       if (new Date(end) <= new Date(start))
         throw new ApiError("結束時間必須晚於開始時間。", 400);
 
       const weight = state.petWeight ? Number(state.petWeight) : null;
+      // HTML min/max don't stop programmatic/typed values, so clamp here.
+      // Out-of-range input is rejected rather than silently altered.
+      if (weight !== null) {
+        if (
+          !Number.isFinite(weight) ||
+          weight < DOG_WEIGHT_MIN ||
+          weight > DOG_WEIGHT_MAX
+        ) {
+          throw new ApiError(
+            `狗狗體重必須介乎 ${DOG_WEIGHT_MIN}–${DOG_WEIGHT_MAX} kg。`,
+            400,
+          );
+        }
+      }
 
       const payload: Record<string, unknown> = {
         serviceType: state.serviceType,
@@ -201,6 +310,9 @@ export default function BookPage() {
         petData: {
           name: state.petName.trim(),
           type: SERVICE_META[state.serviceType].petType,
+          // Saved pet (signed-in only): link the exact row and let the backend
+          // use its stored type, so a saved "other" pet isn't coerced.
+          ...(selectedPetId ? { petId: selectedPetId } : {}),
           breed: state.petBreed.trim() || null,
           weightKg: weight !== null && Number.isFinite(weight) ? weight : null,
           vaccinated: state.vaccinated,
@@ -268,10 +380,20 @@ export default function BookPage() {
             isGuest={isGuest}
             sessionResolved={sessionResolved}
             sessionEmail={email || ""}
+            savedAddresses={savedAddresses}
+            selectedAddressId={selectedAddressId}
+            onSelectAddress={selectAddress}
           />
         )}
         {step === 3 && (
-          <StepThree state={state} onChange={update} isGuest={isGuest} />
+          <StepThree
+            state={state}
+            onChange={update}
+            isGuest={isGuest}
+            savedPets={savedPets}
+            selectedPetId={selectedPetId}
+            onSelectPet={selectPet}
+          />
         )}
         {step === 4 && (
           <StepFour
@@ -389,6 +511,11 @@ function StepOne({
   }, []);
 
   const catService = isCatService(state.serviceType);
+  // Derived, never typed: start time + the service's slot length.
+  const estimatedEnd = addMinutes(
+    state.startTime,
+    SERVICE_META[state.serviceType].durationMinutes,
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -528,17 +655,13 @@ function StepOne({
         </span>
         <div className="grid grid-cols-3 gap-2">
           {TIME_PRESETS.map((preset) => {
-            const active =
-              state.startTime === preset.start && state.endTime === preset.end;
+            const active = state.startTime === preset.start;
             return (
               <button
                 key={preset.id}
                 type="button"
                 aria-pressed={active}
-                onClick={() => {
-                  onChange("startTime", preset.start);
-                  onChange("endTime", preset.end);
-                }}
+                onClick={() => onChange("startTime", preset.start)}
                 className={`flex flex-col items-center gap-0.5 rounded-xl px-2 py-2.5 text-sm font-semibold transition-colors ${
                   active
                     ? "bg-[#FFA259] text-white"
@@ -551,7 +674,7 @@ function StepOne({
                     active ? "text-white/80" : "text-[#4A3B32]/60"
                   }`}
                 >
-                  {preset.sub} · {preset.start}–{preset.end}
+                  {preset.sub} · 由 {preset.start}
                 </span>
               </button>
             );
@@ -574,15 +697,22 @@ function StepOne({
         </div>
         <div>
           <label htmlFor="end-time" className="mb-2 block text-sm font-medium text-[#4A3B32]">
-            結束時間
+            預計結束時間
           </label>
+          {/* Derived from start time + service duration; not user-editable. */}
           <input
             id="end-time"
-            type="time"
-            value={state.endTime}
-            onChange={(e) => onChange("endTime", e.target.value)}
-            className={inputClass}
+            type="text"
+            value={estimatedEnd}
+            readOnly
+            disabled
+            aria-describedby="end-time-hint"
+            className={`${inputClass} cursor-not-allowed bg-black/5 text-[#4A3B32]/70`}
           />
+          <p id="end-time-hint" className="mt-1 text-xs text-[#4A3B32]/60">
+            {SERVICE_META[state.serviceType].label} 約需{" "}
+            {SERVICE_META[state.serviceType].duration}，系統自動計算。
+          </p>
         </div>
       </div>
 
@@ -599,12 +729,18 @@ function StepTwo({
   isGuest,
   sessionResolved,
   sessionEmail,
+  savedAddresses,
+  selectedAddressId,
+  onSelectAddress,
 }: {
   state: WizardState;
   onChange: <K extends keyof WizardState>(key: K, value: WizardState[K]) => void;
   isGuest: boolean;
   sessionResolved: boolean;
   sessionEmail: string;
+  savedAddresses: AddressRecord[];
+  selectedAddressId: string | null;
+  onSelectAddress: (id: string) => void;
 }) {
   return (
     <div className="flex flex-col gap-5">
@@ -706,6 +842,48 @@ function StepTwo({
         </div>
       )}
 
+      {/* Saved addresses (signed-in only) -------------------------------- */}
+      {!isGuest && savedAddresses.length > 0 && (
+        <div className="rounded-xl bg-[#FFF8E1] p-4 ring-1 ring-black/5">
+          <h3 className="text-sm font-semibold text-[#4A3B32]">選擇已儲存地址</h3>
+          <p className="mt-0.5 text-xs text-[#4A3B32]/60">
+            選擇後會自動填入下方欄位，仍可自行修改。
+          </p>
+          <div className="mt-3 grid gap-2">
+            {savedAddresses.map((addr) => {
+              const active = selectedAddressId === addr.id;
+              return (
+                <button
+                  key={addr.id}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => onSelectAddress(addr.id)}
+                  className={`rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${
+                    active
+                      ? "bg-[#FFA259] text-white"
+                      : "bg-white text-[#4A3B32] ring-1 ring-black/5 hover:bg-white/80"
+                  }`}
+                >
+                  <span className="block font-medium">
+                    {addr.label || addr.fullAddress}
+                  </span>
+                  {addr.label && (
+                    <span className="block text-xs opacity-70">
+                      {addr.fullAddress}
+                    </span>
+                  )}
+                  {addr.doorCode && (
+                    <span className="mt-0.5 block text-xs opacity-70">
+                      進入方式：{addr.doorCode}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Address ------------------------------------------------------------ */}
       <Field label="詳細地址" htmlFor="address-full">
         <textarea
@@ -738,13 +916,23 @@ function StepThree({
   state,
   onChange,
   isGuest,
+  savedPets,
+  selectedPetId,
+  onSelectPet,
 }: {
   state: WizardState;
   onChange: <K extends keyof WizardState>(key: K, value: WizardState[K]) => void;
   isGuest: boolean;
+  savedPets: Pet[];
+  selectedPetId: string | null;
+  onSelectPet: (id: string) => void;
 }) {
   const serviceMeta = SERVICE_META[state.serviceType];
   const petLabel = serviceMeta.petType === "dog" ? "狗狗" : "貓貓";
+  // A dog service shouldn't offer saved cats (and vice versa).
+  const matchingPets = savedPets.filter(
+    (p) => p.type === serviceMeta.petType || p.type === "other",
+  );
 
   return (
     <div className="flex flex-col gap-5">
@@ -756,6 +944,41 @@ function StepThree({
       </div>
 
       <h2 className="text-lg font-semibold text-[#4A3B32]">寵物資料</h2>
+
+      {/* Saved pets (signed-in only), filtered to the service's pet type. */}
+      {!isGuest && matchingPets.length > 0 && (
+        <div className="rounded-xl bg-[#FFF8E1] p-4 ring-1 ring-black/5">
+          <h3 className="text-sm font-semibold text-[#4A3B32]">選擇已儲存寵物</h3>
+          <p className="mt-0.5 text-xs text-[#4A3B32]/60">
+            選擇後會自動填入下方資料，仍可自行修改。
+          </p>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            {matchingPets.map((pet) => {
+              const active = selectedPetId === pet.id;
+              return (
+                <button
+                  key={pet.id}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => onSelectPet(pet.id)}
+                  className={`rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${
+                    active
+                      ? "bg-[#FFA259] text-white"
+                      : "bg-white text-[#4A3B32] ring-1 ring-black/5 hover:bg-white/80"
+                  }`}
+                >
+                  <span className="block font-medium">{pet.name}</span>
+                  <span className="block text-xs opacity-70">
+                    {[pet.breed, pet.weightKg ? `${pet.weightKg} kg` : null]
+                      .filter(Boolean)
+                      .join(" · ") || petTypeLabel(pet.type)}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
             <Field label="寵物名稱（可填寫多隻）" htmlFor="pet-name">
         <input
@@ -792,13 +1015,34 @@ function StepThree({
               id="pet-weight"
               type="number"
               step="0.1"
-              min="0.1"
-              max="100"
+              min={DOG_WEIGHT_MIN}
+              max={DOG_WEIGHT_MAX}
               value={state.petWeight}
-              onChange={(e) => onChange("petWeight", e.target.value)}
+              onChange={(e) => {
+                const raw = e.target.value;
+                // Reject a leading "-" outright; `min` alone still lets
+                // negative values be typed in some browsers.
+                if (raw.startsWith("-")) return;
+                onChange("petWeight", raw);
+              }}
+              onBlur={(e) => {
+                const n = Number(e.target.value);
+                if (e.target.value === "" || !Number.isFinite(n)) return;
+                // Snap an out-of-range entry back into the valid band.
+                if (n < DOG_WEIGHT_MIN) onChange("petWeight", String(DOG_WEIGHT_MIN));
+                else if (n > DOG_WEIGHT_MAX)
+                  onChange("petWeight", String(DOG_WEIGHT_MAX));
+              }}
               placeholder="例如：4.5"
               className={inputClass}
             />
+            {state.petWeight !== "" &&
+              (Number(state.petWeight) < DOG_WEIGHT_MIN ||
+                Number(state.petWeight) > DOG_WEIGHT_MAX) && (
+                <p role="alert" className="mt-1 text-xs text-red-700">
+                  體重必須介乎 {DOG_WEIGHT_MIN}–{DOG_WEIGHT_MAX} kg。
+                </p>
+              )}
           </Field>
         )}
       </div>
@@ -876,15 +1120,14 @@ function StepThree({
 
       {/* Documents: no pet record exists until POST /api/bookings runs, so
           uploads happen from the dashboard afterwards. */}
-      <div className="rounded-xl border border-dashed border-black/15 bg-[#FFF8E1] p-4">
-        <p className="text-sm font-semibold text-[#4A3B32]">文件上傳</p>
+      <div className="rounded-md border border-blue-200 bg-blue-50 p-4 text-blue-800">
+        <p className="text-sm font-semibold">ℹ️ 文件上傳</p>
         {isGuest ? (
-          <p className="mt-1 text-xs text-[#4A3B32]/70">
-            Guests can upload vaccination records via the dashboard after
-            booking.
+          <p className="mt-1 text-xs">
+            完成預約後，你會收到登入連結，屆時可於「我的預約」上載疫苗接種證明等文件。
           </p>
         ) : (
-          <p className="mt-1 text-xs text-[#4A3B32]/70">
+          <p className="mt-1 text-xs">
             寵物檔案會於提交預約時一併建立。完成預約後，請前往「我的預約」上載寵物相片、疫苗接種證明及體重證明。
           </p>
         )}
@@ -918,7 +1161,13 @@ function StepFour({
       ? [{ label: "貓隻數量", value: `${state.catCount} 隻` }]
       : []),
     { label: "日期", value: state.date || "—" },
-    { label: "時間", value: `${state.startTime} – ${state.endTime}` },
+    {
+      label: "時間",
+      value: `${state.startTime} – ${addMinutes(
+        state.startTime,
+        serviceMeta.durationMinutes,
+      )}`,
+    },
     { label: "地址", value: state.address || "—" },
     { label: "進入方式及密碼", value: state.doorCode || "—" },
     {

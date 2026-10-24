@@ -29,7 +29,6 @@ export function UserBookings() {
     null,
   );
   const [showProfile, setShowProfile] = useState(false);
-  const [email, setEmail] = useState("");
   const [toast, setToast] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -51,18 +50,8 @@ export function UserBookings() {
     }
   }, []);
 
-  /** The profile modal is the only consumer of the signed-in email. */
-  const openProfile = useCallback(async () => {
-    setShowProfile(true);
-    try {
-      const session = await apiGet<{ user?: { email?: string | null } | null }>(
-        "/api/auth/session",
-      );
-      setEmail(session.user?.email ?? "");
-    } catch {
-      setEmail("");
-    }
-  }, []);
+  /** The modal fetches its own data; nothing to load up front. */
+  const openProfile = useCallback(() => setShowProfile(true), []);
 
   useEffect(() => {
     void load();
@@ -231,7 +220,6 @@ export function UserBookings() {
 
       {showProfile && (
         <ProfileSettingsModal
-          email={email}
           onClose={() => setShowProfile(false)}
           onSaved={(name) => showToast(`已更新個人資料${name ? `（${name}）` : ""}。`)}
         />
