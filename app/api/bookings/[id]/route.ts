@@ -2,10 +2,15 @@ import { NextResponse } from "next/server";
 
 import { auth } from "@/auth";
 import {
+  getBookingForCalendar,
   updateBooking,
   type BookingStatus,
   type UpdateBookingInput,
 } from "@/db/queries/bookings";
+import {
+  createCalendarEvent,
+  deleteCalendarEvent,
+} from "@/lib/google-calendar";
 import { bookingStatus } from "@/db/schema";
 
 /** Valid statuses derived from the pgEnum (single source of truth). */
@@ -56,12 +61,14 @@ export async function PATCH(
     proposalEndTime,
     proposalReason,
     proposalStatus,
+    cancellationReason,
   } = (body ?? {}) as {
     status?: unknown;
     proposalStartTime?: unknown;
     proposalEndTime?: unknown;
     proposalReason?: unknown;
     proposalStatus?: unknown;
+    cancellationReason?: unknown;
   };
 
   const patch: UpdateBookingInput = {};
@@ -115,6 +122,29 @@ export async function PATCH(
     patch.proposalStatus = proposalStatus as string | null;
   }
 
+  if (cancellationReason !== undefined) {
+    if (
+      cancellationReason !== null &&
+      typeof cancellationReason !== "string"
+    ) {
+      return NextResponse.json(
+        { error: "cancellationReason must be a string or null" },
+        { status: 400 },
+      );
+    }
+    // A cancellation reason only makes sense when cancelling.
+    if (status !== "cancelled") {
+      return NextResponse.json(
+        {
+          error:
+            "cancellationReason may only be provided when status is 'cancelled'",
+        },
+        { status: 400 },
+      );
+    }
+    patch.cancellationReason = cancellationReason as string | null;
+  }
+
   if (Object.keys(patch).length === 0) {
     return NextResponse.json(
       { error: "No updatable fields provided" },
@@ -122,10 +152,68 @@ export async function PATCH(
     );
   }
 
+  // Read the booking BEFORE updating so we can see its prior status and any
+  // existing Google Calendar event id, plus pet/customer for the event payload.
+  const beforeBooking = await getBookingForCalendar(organizationId, bookingId);
+  if (!beforeBooking) {
+    return NextResponse.json({ error: "Booking not found" }, { status: 404 });
+  }
+
+  // Persist the update first — the DB update must succeed regardless of the
+  // calendar sync outcome.
   const updated = await updateBooking(organizationId, bookingId, userId, patch);
   if (!updated) {
     return NextResponse.json({ error: "Booking not found" }, { status: 404 });
   }
 
-  return NextResponse.json({ booking: updated });
+  // --- Google Calendar sync (best-effort; never fails the request) ----------
+  let syncedEventId: string | null | undefined;
+  try {
+    const nextStatus = updated.status;
+    const prevStatus = beforeBooking.status;
+
+    if (
+      nextStatus === "accepted" &&
+      prevStatus !== "accepted" &&
+      !beforeBooking.googleEventId
+    ) {
+      // Newly accepted: create the event and store its id.
+      const eventId = await createCalendarEvent(
+        updated,
+        { name: beforeBooking.pet?.name ?? "Pet" },
+        beforeBooking.customer,
+      );
+      await updateBooking(organizationId, bookingId, userId, {
+        googleEventId: eventId,
+      });
+      syncedEventId = eventId;
+    } else if (
+      (nextStatus === "cancelled" || nextStatus === "rejected") &&
+      beforeBooking.googleEventId
+    ) {
+      // Cancelled/rejected: remove the event, then clear the stored id.
+      await deleteCalendarEvent(beforeBooking.googleEventId);
+      await updateBooking(organizationId, bookingId, userId, {
+        googleEventId: null,
+      });
+      syncedEventId = null;
+    }
+  } catch (err) {
+    // Google is down or misconfigured: log and continue. The booking state is
+    // already persisted above.
+    console.error(
+      "[google-calendar] sync failed for booking",
+      bookingId,
+      err instanceof Error ? err.message : err,
+    );
+  }
+
+  // Re-read so the response reflects any googleEventId change.
+  const finalBooking =
+    (await getBookingForCalendar(organizationId, bookingId)) ?? updated;
+
+  return NextResponse.json({
+    booking: finalBooking,
+    ...(syncedEventId !== undefined ? { googleEventId: syncedEventId } : {}),
+  });
 }

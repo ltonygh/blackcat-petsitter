@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 
 import { redirect } from "next/navigation";
+import { connection } from "next/server";
 
 import { auth } from "../../auth";
 
@@ -18,6 +19,10 @@ import { auth } from "../../auth";
  */
 
 async function StaffRoleCheck() {
+  // `auth()` generates a CSRF token via synchronous crypto.getRandomValues()
+  // (@auth/core/lib/init.js), rejected during prerender by Cache Components.
+  await connection();
+
   const session = await auth();
 
   if (!session?.user) {

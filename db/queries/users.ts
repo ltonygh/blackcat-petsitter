@@ -19,6 +19,8 @@ export type AuthUserRow = {
   organizationId: string;
   email: string;
   googleId: string | null;
+  name: string | null;
+  phone: string | null;
   role: "user" | "owner" | "staff";
 };
 
@@ -43,6 +45,8 @@ export async function findUserByEmail(
     organizationId: row.organizationId,
     email: row.email,
     googleId: row.googleId,
+    name: row.name,
+    phone: row.phone,
     role: row.role,
   };
 }
@@ -83,6 +87,8 @@ export async function upsertUserFromOAuth(input: {
       organizationId: inserted.organizationId,
       email: inserted.email,
       googleId: inserted.googleId,
+      name: inserted.name,
+      phone: inserted.phone,
       role: inserted.role,
     };
   }
@@ -113,6 +119,8 @@ export async function getUserProfile(
       organizationId: row.organizationId,
       email: row.email,
       googleId: row.googleId,
+      name: row.name,
+      phone: row.phone,
       role: row.role,
     };
   });
@@ -130,5 +138,42 @@ export async function getOrganizationName(
       where: eq(organizations.id, organizationId),
     });
     return row?.name ?? null;
+  });
+}
+
+
+/**
+ * Update the caller's profile (name and/or phone) within their tenant.
+ *
+ * Only the provided fields are written. `users` is RLS-enabled, so the UPDATE
+ * is scoped to the caller's organization. Returns the updated profile, or null
+ * if the user is not visible in the tenant.
+ */
+export async function updateUserProfile(
+  organizationId: string,
+  userId: string,
+  input: { name?: string | null; phone?: string | null },
+): Promise<AuthUserRow | null> {
+  return withTenant(organizationId, async (tx) => {
+    const [row] = await tx
+      .update(users)
+      .set({
+        ...(input.name !== undefined ? { name: input.name } : {}),
+        ...(input.phone !== undefined ? { phone: input.phone } : {}),
+      })
+      .where(eq(users.id, userId))
+      .returning();
+
+    if (!row) return null;
+
+    return {
+      id: row.id,
+      organizationId: row.organizationId,
+      email: row.email,
+      googleId: row.googleId,
+      name: row.name,
+      phone: row.phone,
+      role: row.role,
+    };
   });
 }

@@ -1,53 +1,39 @@
 import { Suspense } from "react";
-
 import { redirect } from "next/navigation";
+import { connection } from "next/server";
 
 import { auth } from "../../auth";
+import { BookingsManager } from "@/components/dashboard/BookingsManager";
+import { DashboardSkeleton } from "@/components/dashboard/DashboardSkeleton";
 
 /**
- * Owner dashboard (placeholder).
+ * Owner dashboard.
  *
- * Next.js 16 Cache Components: the root Page stays synchronous; the auth() +
- * role check runs in an async child wrapped in <Suspense>. Authorization is
- * also enforced in the sibling layout (which covers nested /owner/* routes);
- * this page repeats the check as defence-in-depth and returns a placeholder
- * UI for the frontend Phase 2 work.
- *
- *   - no session        -> redirect('/login')
- *   - role !== 'owner'  -> redirect('/dashboard')
+ * Page stays synchronous (Next 16 Cache Components); auth() + role check runs
+ * in an async child behind <Suspense>. The layout also enforces the role as
+ * defence-in-depth. `GET /api/bookings` returns all org bookings for owners.
  */
+async function OwnerGate() {
+  // `auth()` generates a CSRF token via synchronous crypto.getRandomValues()
+  // (@auth/core/lib/init.js), rejected during prerender by Cache Components.
+  await connection();
 
-async function OwnerRoleCheck() {
   const session = await auth();
-
-  if (!session?.user) {
-    redirect("/login");
-  }
-  if (session.user.role !== "owner") {
-    redirect("/dashboard");
-  }
-
+  if (!session?.user) redirect("/login");
+  if (session.user.role !== "owner") redirect("/dashboard");
   return (
-    <section>
-      <h1>Owner</h1>
-      <div>Owner Dashboard Placeholder</div>
-    </section>
+    <BookingsManager
+      mode="owner"
+      title="Owner Dashboard"
+      subtitle="管理機構所有預約、確認付款及生成服務報告。"
+    />
   );
 }
 
 export default function OwnerPage() {
   return (
-    <Suspense
-      fallback={
-        <section aria-hidden>
-          <h1>Owner</h1>
-          <div
-            style={{ height: 16, width: "60%", background: "rgba(0,0,0,0.06)", borderRadius: 4 }}
-          />
-        </section>
-      }
-    >
-      <OwnerRoleCheck />
+    <Suspense fallback={<DashboardSkeleton />}>
+      <OwnerGate />
     </Suspense>
   );
 }

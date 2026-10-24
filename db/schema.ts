@@ -37,6 +37,7 @@ export const bookingStatus = pgEnum("booking_status", [
   "pending",
   "accepted",
   "time_proposed",
+  "verification_pending",
   "paid",
   "completed",
   "cancelled",
@@ -67,6 +68,9 @@ export const users = pgTable("users", {
     .references(() => organizations.id, { onDelete: "restrict" }),
   email: text("email").notNull().unique(),
   googleId: text("google_id"),
+  // Optional profile fields (populated via PATCH /api/users/me or guest data).
+  name: text("name"),
+  phone: text("phone"),
   role: userRole("role").notNull().default("user"),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
@@ -83,6 +87,14 @@ export const bookings = pgTable("bookings", {
   userId: uuid("user_id")
     .notNull()
     .references(() => users.id, { onDelete: "restrict" }),
+  // The pet being booked and the service address. Nullable at the DB level for
+  // backward compatibility with pre-existing bookings, but set by the API on
+  // creation. FK constraints keep referential integrity; tenancy is enforced by
+  // withTenant + application checks (bookings itself is RLS-scoped).
+  petId: uuid("pet_id").references(() => pets.id, { onDelete: "restrict" }),
+  addressId: uuid("address_id").references(() => addresses.id, {
+    onDelete: "restrict",
+  }),
   staffId: uuid("staff_id").references(() => users.id, {
     onDelete: "restrict",
   }),
@@ -97,6 +109,16 @@ export const bookings = pgTable("bookings", {
   proposalEndTime: timestamp("proposal_end_time", { withTimezone: true }),
   proposalReason: text("proposal_reason"),
   proposalStatus: text("proposal_status"),
+  // Guest booking contact details. NULL for logged-in users (their contact
+  // data is resolved via user_id -> users). Set only when a booking is placed
+  // unauthenticated; a guest user row is still created for the booking so the
+  // guest can later sign in and manage it.
+  guestName: text("guest_name"),
+  guestEmail: text("guest_email"),
+  guestPhone: text("guest_phone"),
+  // Google Calendar event id, set when the booking is accepted and pushed to
+  // the Owner's calendar; cleared when the booking is cancelled/rejected.
+  googleEventId: text("google_event_id"),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
@@ -147,9 +169,16 @@ export const pets = pgTable("pets", {
   type: text("type").notNull(),
   breed: text("breed"),
   weightKg: numeric("weight_kg", { precision: 5, scale: 2 }),
+  // Extended profile data (supplied later, not on the initial form).
+  age: integer("age"),
   gender: text("gender"),
+  habits: text("habits"),
   vaccinated: boolean("vaccinated"),
   sterilized: boolean("sterilized"),
+  // Whether the pet has a contagious condition (surfaced to staff pre-visit).
+  contagious: boolean("contagious").default(false),
+  // Free-text appearance (colour, markings, personality) to help identify the pet.
+  appearance: text("appearance"),
   notes: text("notes"),
   // Either a stock icon reference (e.g. 'stock/dog-01.png') or a user-uploaded
   // R2 key (e.g. 'pets/{petId}/pet_icon/{uuid}.jpg'). Nullable at the DB level;
@@ -168,6 +197,23 @@ export const addresses = pgTable("addresses", {
     .references(() => users.id, { onDelete: "restrict" }),
   label: text("label"),
   fullAddress: text("full_address").notNull(),
+  // Access code / door code supplied by the customer for the visit.
+  doorCode: text("door_code"),
+
+  // Extended operational profile data (supplied after booking, to avoid
+  // bloating the initial booking form). All nullable.
+  estatePassword: text("estate_password"),
+  keycardInfo: text("keycard_info"),
+  foodAmount: text("food_amount"),
+  foodLocation: text("food_location"),
+  waterLocation: text("water_location"),
+  toolsLocation: text("tools_location"),
+  toysLocation: text("toys_location"),
+  trashLocation: text("trash_location"),
+  emergencyContact: text("emergency_contact"),
+  primaryVet: text("primary_vet"),
+  backupVet: text("backup_vet"),
+  otherNotes: text("other_notes"),
   nearestMtr: text("nearest_mtr"),
   walkingMinutes: integer("walking_minutes"),
   requiresTransportChange: boolean("requires_transport_change"),
@@ -286,6 +332,7 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   }),
   pets: many(pets),
   addresses: many(addresses),
+  bookings: many(bookings),
 }));
 
 export const bookingsRelations = relations(bookings, ({ one, many }) => ({
@@ -293,9 +340,20 @@ export const bookingsRelations = relations(bookings, ({ one, many }) => ({
     fields: [bookings.organizationId],
     references: [organizations.id],
   }),
-  user: one(users, {
+  // The customer who made the booking (the former `user` relation). Renamed to
+  // `customer` so the API can use `.query.bookings.findMany({ with: { customer: true } })`
+  // to satisfy the frontend's `BookingWithDetails` shape.
+  customer: one(users, {
     fields: [bookings.userId],
     references: [users.id],
+  }),
+  pet: one(pets, {
+    fields: [bookings.petId],
+    references: [pets.id],
+  }),
+  address: one(addresses, {
+    fields: [bookings.addressId],
+    references: [addresses.id],
   }),
   events: many(bookingEvents),
   reports: many(reports),
@@ -314,6 +372,7 @@ export const petsRelations = relations(pets, ({ one, many }) => ({
     references: [users.id],
   }),
   documents: many(petDocuments),
+  bookings: many(bookings),
 }));
 
 export const petDocumentsRelations = relations(petDocuments, ({ one }) => ({

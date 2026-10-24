@@ -1,12 +1,19 @@
 import { randomUUID } from "node:crypto";
 
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { client, withTenant } from "./client";
+import { client, db, withTenant } from "./client";
 import { getPetInTenant, listPetDocuments } from "./queries/pets";
 import { getUserProfile } from "./queries/users";
-import { organizations, petDocuments, pets, users } from "./schema";
+import {
+  bookingEvents,
+  bookings,
+  organizations,
+  petDocuments,
+  pets,
+  users,
+} from "./schema";
 import {
   checkConditionalTypeRules,
   isQuarantineKeyForPet,
@@ -136,14 +143,55 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  // Delete in FK order: pet_documents -> pets -> users -> organizations.
+  // SAFETY: pets / addresses / pet_documents / booking_events have NO RLS, so
+  // an UNSCOPED delete would wipe the entire table (including real data).
+  // Every delete below is scoped to the rows THIS test created.
+  //
+  // First: purge any bookings referencing this run's pets via the owner client
+  // (bypasses RLS), because bookings.pet_id is ON DELETE RESTRICT and a stale
+  // booking in any tenant would otherwise block the pets delete.
+  const petIds = [petAId, petBId];
+  const stale = await db
+    .select({ id: bookings.id })
+    .from(bookings)
+    .where(inArray(bookings.petId, petIds));
+  if (stale.length > 0) {
+    const ids = stale.map((b) => b.id);
+    await db.delete(bookingEvents).where(inArray(bookingEvents.bookingId, ids));
+    await db.delete(bookings).where(inArray(bookings.id, ids));
+  }
+
+  // Then delete this test's rows in each tenant, strictly scoped.
   for (const [orgId, email] of [
     [orgAId, userAEmail],
     [orgBId, userBEmail],
   ] as const) {
     await withTenant(orgId, async (tx) => {
-      await tx.delete(petDocuments);
-      await tx.delete(pets);
+      const [u] = await tx
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.email, email))
+        .limit(1);
+
+      await tx
+        .delete(petDocuments)
+        .where(inArray(petDocuments.petId, [petAId, petBId]));
+      await tx.delete(pets).where(inArray(pets.id, [petAId, petBId]));
+
+      if (u) {
+        const ownBookings = await tx
+          .select({ id: bookings.id })
+          .from(bookings)
+          .where(eq(bookings.userId, u.id));
+        if (ownBookings.length > 0) {
+          const ids = ownBookings.map((b) => b.id);
+          await tx
+            .delete(bookingEvents)
+            .where(inArray(bookingEvents.bookingId, ids));
+          await tx.delete(bookings).where(inArray(bookings.id, ids));
+        }
+      }
+
       await tx.delete(users).where(eq(users.email, email));
       await tx.delete(organizations).where(eq(organizations.id, orgId));
     });

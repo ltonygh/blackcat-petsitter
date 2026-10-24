@@ -1,6 +1,7 @@
 import { and, eq, isNull } from "drizzle-orm";
 
 import { withTenant } from "../client";
+import { defaultIconKey } from "../../lib/pet-icons";
 import { petDocuments, pets, users } from "../schema";
 
 /**
@@ -360,5 +361,103 @@ export async function setPetIconKey(
     if (!owned) return;
 
     await tx.update(pets).set({ iconKey }).where(eq(pets.id, petId));
+  });
+}
+
+/* -------------------------------------------------------------------------- */
+/* Pets CRUD (for the /api/pets endpoints)                                     */
+/* -------------------------------------------------------------------------- */
+
+/** A full pet row (all schema columns) as returned by the pets API. */
+export type Pet = typeof pets.$inferSelect;
+
+export type CreatePetInput = {
+  name: string;
+  type: string;
+  breed?: string | null;
+  weightKg?: string | number | null;
+  vaccinated?: boolean | null;
+  sterilized?: boolean | null;
+  contagious?: boolean | null;
+  appearance?: string | null;
+  notes?: string | null;
+};
+
+/**
+ * Create a pet owned by `userId` within `organizationId`.
+ *
+ * GUARD: `pets` has no RLS, so we first confirm the user is a member of this
+ * organization (via the RLS-protected `users` table). If not, we throw — this
+ * prevents attaching a pet to a user in another tenant. The pet's `icon_key`
+ * defaults to the stock icon for its type.
+ */
+export async function createPet(
+  organizationId: string,
+  userId: string,
+  input: CreatePetInput,
+): Promise<Pet> {
+  return withTenant(organizationId, async (tx) => {
+    const [owner] = await tx
+      .select({ id: users.id })
+      .from(users)
+      .where(
+        and(eq(users.id, userId), eq(users.organizationId, organizationId)),
+      )
+      .limit(1);
+
+    if (!owner) {
+      const err = new Error("User not found in this organization") as Error & {
+        code?: string;
+      };
+      err.code = "P0001";
+      throw err;
+    }
+
+    const [row] = await tx
+      .insert(pets)
+      .values({
+        userId,
+        name: input.name,
+        type: input.type,
+        breed: input.breed ?? null,
+        weightKg:
+          input.weightKg === undefined || input.weightKg === null
+            ? null
+            : String(input.weightKg),
+        vaccinated: input.vaccinated ?? null,
+        sterilized: input.sterilized ?? null,
+        contagious: input.contagious ?? false,
+        appearance: input.appearance ?? null,
+        notes: input.notes ?? null,
+        iconKey: defaultIconKey(input.type),
+      })
+      .returning();
+    return row;
+  });
+}
+
+/**
+ * List all pets owned by `userId` within `organizationId`.
+ *
+ * Tenancy + ownership enforced by the `users` join (org match) and the
+ * `user_id` filter. `pets` has no RLS, so the join is what scopes it.
+ */
+export async function listPetsByUser(
+  organizationId: string,
+  userId: string,
+): Promise<Pet[]> {
+  return withTenant(organizationId, async (tx) => {
+    return tx
+      .select()
+      .from(pets)
+      .innerJoin(users, eq(pets.userId, users.id))
+      .where(
+        and(
+          eq(pets.userId, userId),
+          eq(users.organizationId, organizationId),
+        ),
+      )
+      .orderBy(pets.createdAt)
+      .then((rows) => rows.map((r) => r.pets));
   });
 }

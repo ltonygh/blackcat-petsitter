@@ -29,6 +29,48 @@
       "when": 1730000020000,
       "tag": "0003_pet_documents",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1730000030000,
+      "tag": "0004_bookings_pets",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1730000040000,
+      "tag": "0005_guest_bookings_pet_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1730000050000,
+      "tag": "0006_address_door_code",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1730000060000,
+      "tag": "0007_users_profile_bookings_cancel",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1730000070000,
+      "tag": "0008_detailed_profiles",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1730000080000,
+      "tag": "0009_bookings_google_event_id",
+      "breakpoints": true
     }
   ]
 }

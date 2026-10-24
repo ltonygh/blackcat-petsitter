@@ -1,7 +1,9 @@
 import { and, eq, isNull } from "drizzle-orm";
 
 import { withTenant, type TenantTransaction } from "../client";
+import { defaultIconKey } from "../../lib/pet-icons";
 import {
+  addresses,
   bookingEvents,
   bookings,
   pets,
@@ -32,18 +34,14 @@ export type BookingStatus = (typeof bookingStatus.enumValues)[number];
  * columns are added.
  */
 export type BookingWithDetails = typeof bookings.$inferSelect & {
-  pet: {
-    id: string;
-    name: string;
-    type: string;
-    iconKey: string | null;
-  } | null;
+  pet: typeof pets.$inferSelect | null;
   customer: {
     id: string;
     email: string;
     name: string | null;
     phone: string | null;
   } | null;
+  address: typeof addresses.$inferSelect | null;
 };
 
 export type CreateBookingInput = {
@@ -61,6 +59,8 @@ export type UpdateBookingInput = {
   proposalEndTime?: Date | null;
   proposalReason?: string | null;
   proposalStatus?: string | null;
+  cancellationReason?: string | null;
+  googleEventId?: string | null;
 };
 
 /**
@@ -166,23 +166,24 @@ export async function listBookings(
 
     const rows = await tx.query.bookings.findMany({
       where: and(isNull(bookings.deletedAt), roleFilter),
+      // Eager-load the full pet, customer and address so the frontend does not
+      // need to call /api/pets or /api/addresses in parallel.
       with: {
-        pet: { columns: { id: true, name: true, type: true, iconKey: true } },
-        customer: { columns: { id: true, email: true } },
+        pet: true,
+        customer: true,
+        address: true,
       },
       orderBy: (b, { desc }) => [desc(b.createdAt)],
     });
 
     return rows.map((row) => ({
       ...row,
-      // `users` has no name/phone columns yet; expose the contract fields as
-      // null so the frontend's BookingWithDetails shape is stable.
       customer: row.customer
         ? {
             id: row.customer.id,
             email: row.customer.email,
-            name: null,
-            phone: null,
+            name: row.customer.name,
+            phone: row.customer.phone,
           }
         : null,
     })) as BookingWithDetails[];
@@ -248,6 +249,12 @@ export async function updateBooking(
         ...(input.proposalStatus !== undefined
           ? { proposalStatus: input.proposalStatus }
           : {}),
+        ...(input.cancellationReason !== undefined
+          ? { cancellationReason: input.cancellationReason }
+          : {}),
+        ...(input.googleEventId !== undefined
+          ? { googleEventId: input.googleEventId }
+          : {}),
       })
       .where(eq(bookings.id, bookingId))
       .returning();
@@ -263,5 +270,177 @@ export async function updateBooking(
     }
 
     return updated;
+  });
+}
+
+/**
+ * Fetch a booking (RLS-scoped) with its pet + customer eager-loaded, for
+ * Google Calendar sync. Returns null if not visible in this tenant.
+ */
+export async function getBookingForCalendar(
+  organizationId: string,
+  bookingId: string,
+): Promise<BookingWithDetails | null> {
+  return withTenant(organizationId, async (tx) => {
+    const row = await tx.query.bookings.findFirst({
+      where: and(eq(bookings.id, bookingId), isNull(bookings.deletedAt)),
+      with: { pet: true, customer: true },
+    });
+    if (!row) return null;
+    return {
+      ...row,
+      customer: row.customer
+        ? {
+            id: row.customer.id,
+            email: row.customer.email,
+            name: row.customer.name,
+            phone: row.customer.phone,
+          }
+        : null,
+    } as BookingWithDetails;
+  });
+}
+
+/* -------------------------------------------------------------------------- */
+/* Inline (guest-capable) booking creation                                     */
+/* -------------------------------------------------------------------------- */
+
+export type InlinePetData = {
+  name: string;
+  type: string;
+  breed?: string | null;
+  weightKg?: string | number | null;
+  vaccinated?: boolean | null;
+  sterilized?: boolean | null;
+  contagious?: boolean | null;
+  appearance?: string | null;
+  notes?: string | null;
+};
+
+export type InlineAddressData = {
+  fullAddress: string;
+  doorCode?: string | null;
+  label?: string | null;
+};
+
+export type InlineGuestData = {
+  name: string;
+  email: string;
+  phone: string;
+};
+
+export type CreateInlineBookingInput = {
+  serviceType: string;
+  startTime: Date;
+  endTime: Date;
+  totalHkd: number;
+  petData: InlinePetData;
+  addressData: InlineAddressData;
+  guestData?: InlineGuestData | null;
+};
+
+export type InlineBookingResult = {
+  booking: typeof bookings.$inferSelect;
+  userId: string;
+  createdGuestUser: boolean;
+};
+
+async function resolveBookingUserId(
+  tx: TenantTransaction,
+  organizationId: string,
+  userId: string | null,
+  guest: InlineGuestData | null | undefined,
+): Promise<{ userId: string; createdGuestUser: boolean }> {
+  if (userId) return { userId, createdGuestUser: false };
+  if (!guest) {
+    const err = new Error("guestData is required for unauthenticated bookings") as Error & { code?: string };
+    err.code = "P0002";
+    throw err;
+  }
+  const email = guest.email.trim().toLowerCase();
+  const [inserted] = await tx
+    .insert(users)
+    .values({ organizationId, email, role: "user" })
+    .onConflictDoNothing({ target: users.email })
+    .returning({ id: users.id });
+  if (inserted) return { userId: inserted.id, createdGuestUser: true };
+  const [existing] = await tx
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.email, email))
+    .limit(1);
+  if (!existing) {
+    const err = new Error("Email belongs to an account in another organization") as Error & { code?: string };
+    err.code = "P0003";
+    throw err;
+  }
+  return { userId: existing.id, createdGuestUser: false };
+}
+
+export async function createBookingInline(
+  organizationId: string,
+  userId: string | null,
+  input: CreateInlineBookingInput,
+): Promise<InlineBookingResult> {
+  const isGuest = !userId;
+  return withTenant(organizationId, async (tx) => {
+    const resolved = await resolveBookingUserId(tx, organizationId, userId, input.guestData);
+    const finalUserId = resolved.userId;
+
+    const p = input.petData;
+    const [pet] = await tx
+      .insert(pets)
+      .values({
+        userId: finalUserId,
+        name: p.name,
+        type: p.type,
+        breed: p.breed ?? null,
+        weightKg: p.weightKg === undefined || p.weightKg === null ? null : String(p.weightKg),
+        vaccinated: p.vaccinated ?? null,
+        sterilized: p.sterilized ?? null,
+        contagious: p.contagious ?? false,
+        appearance: p.appearance ?? null,
+        notes: p.notes ?? null,
+        iconKey: defaultIconKey(p.type),
+      })
+      .returning({ id: pets.id });
+
+    const [address] = await tx
+      .insert(addresses)
+      .values({
+        userId: finalUserId,
+        fullAddress: input.addressData.fullAddress,
+        doorCode: input.addressData.doorCode ?? null,
+        label: input.addressData.label ?? null,
+      })
+      .returning({ id: addresses.id });
+
+    const [booking] = await tx
+      .insert(bookings)
+      .values({
+        organizationId,
+        userId: finalUserId,
+        petId: pet.id,
+        addressId: address.id,
+        serviceType: input.serviceType,
+        startTime: input.startTime,
+        endTime: input.endTime,
+        totalHkd: input.totalHkd,
+        status: "pending",
+        guestName: isGuest ? (input.guestData?.name ?? null) : null,
+        guestEmail: isGuest ? (input.guestData?.email.trim().toLowerCase() ?? null) : null,
+        guestPhone: isGuest ? (input.guestData?.phone ?? null) : null,
+      })
+      .returning();
+
+    await tx.insert(bookingEvents).values({
+      bookingId: booking.id,
+      actorId: finalUserId,
+      fromStatus: null,
+      toStatus: "pending",
+      note: isGuest ? "Guest booking created" : "Booking created",
+    });
+
+    return { booking, userId: finalUserId, createdGuestUser: resolved.createdGuestUser };
   });
 }

@@ -23,7 +23,7 @@ export async function GET() {
  * POST /api/pets
  *
  * Creates a pet owned by the current user. Accepts
- * { name, type, breed, weightKg, vaccinated, sterilized, notes } and returns
+ * { name, type, breed, weightKg, vaccinated, sterilized, contagious, appearance, notes } and returns
  * the created Pet object (including id).
  */
 export async function POST(request: Request) {
@@ -41,16 +41,27 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { name, type, breed, weightKg, vaccinated, sterilized, notes } =
-    (body ?? {}) as {
-      name?: unknown;
-      type?: unknown;
-      breed?: unknown;
-      weightKg?: unknown;
-      vaccinated?: unknown;
-      sterilized?: unknown;
-      notes?: unknown;
-    };
+  const {
+    name,
+    type,
+    breed,
+    weightKg,
+    vaccinated,
+    sterilized,
+    contagious,
+    appearance,
+    notes,
+  } = (body ?? {}) as {
+    name?: unknown;
+    type?: unknown;
+    breed?: unknown;
+    weightKg?: unknown;
+    vaccinated?: unknown;
+    sterilized?: unknown;
+    contagious?: unknown;
+    appearance?: unknown;
+    notes?: unknown;
+  };
 
   if (typeof name !== "string" || name.trim().length === 0) {
     return NextResponse.json({ error: "name is required" }, { status: 400 });
@@ -95,6 +106,26 @@ export async function POST(request: Request) {
   if (notes !== undefined && notes !== null && typeof notes !== "string") {
     return NextResponse.json({ error: "notes must be a string" }, { status: 400 });
   }
+  if (
+    contagious !== undefined &&
+    contagious !== null &&
+    typeof contagious !== "boolean"
+  ) {
+    return NextResponse.json(
+      { error: "contagious must be a boolean" },
+      { status: 400 },
+    );
+  }
+  if (
+    appearance !== undefined &&
+    appearance !== null &&
+    typeof appearance !== "string"
+  ) {
+    return NextResponse.json(
+      { error: "appearance must be a string" },
+      { status: 400 },
+    );
+  }
 
   try {
     const pet = await createPet(organizationId, userId, {
@@ -107,6 +138,8 @@ export async function POST(request: Request) {
           : (weightKg as string | number),
       vaccinated: typeof vaccinated === "boolean" ? vaccinated : null,
       sterilized: typeof sterilized === "boolean" ? sterilized : null,
+      contagious: typeof contagious === "boolean" ? contagious : null,
+      appearance: typeof appearance === "string" ? appearance : null,
       notes: typeof notes === "string" ? notes : null,
     });
 
