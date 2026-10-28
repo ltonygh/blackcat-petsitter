@@ -37,7 +37,7 @@ export function Header({ session, signOutAction }: HeaderProps) {
     href === "/" ? pathname === "/" : pathname.startsWith(href);
 
   return (
-    <header className="sticky top-0 z-50 border-b border-black/5 bg-[#FFEDB9]/90 backdrop-blur">
+    <header className="sticky top-0 z-50 border-b border-black/5 bg-white backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
         {/* Logo */}
         <Link

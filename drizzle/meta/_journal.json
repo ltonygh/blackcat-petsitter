@@ -71,6 +71,13 @@
       "when": 1730000080000,
       "tag": "0009_bookings_google_event_id",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1730000090000,
+      "tag": "0010_bookings_addons_surcharges",
+      "breakpoints": true
     }
   ]
 }

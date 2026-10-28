@@ -7,6 +7,7 @@ import { formatDateTime, formatHkd } from "@/components/lib/format";
 import { StatusBadge } from "@/components/StatusBadge";
 import type { BookingWithDetails } from "@/types";
 import { ProposeTimeModal } from "./ProposeTimeModal";
+import { AdjustPriceModal } from "./AdjustPriceModal";
 import { ReportWizard } from "./ReportWizard";
 import { StaffBookingDetailModal } from "./StaffBookingDetailModal";
 
@@ -50,6 +51,9 @@ export function BookingsManager({ mode, title, subtitle }: BookingsManagerProps)
   const [error, setError] = useState<string | null>(null);
   const [bookings, setBookings] = useState<BookingWithDetails[]>([]);
   const [proposeTarget, setProposeTarget] = useState<BookingWithDetails | null>(
+    null,
+  );
+  const [priceTarget, setPriceTarget] = useState<BookingWithDetails | null>(
     null,
   );
   const [detailTarget, setDetailTarget] = useState<BookingWithDetails | null>(
@@ -255,7 +259,7 @@ export function BookingsManager({ mode, title, subtitle }: BookingsManagerProps)
                 <div className="flex flex-col items-end gap-2">
                   {/* Pending: accept / reject */}
                   {booking.status === "pending" && (
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap justify-end gap-2">
                       <button
                         type="button"
                         onClick={() =>
@@ -266,6 +270,18 @@ export function BookingsManager({ mode, title, subtitle }: BookingsManagerProps)
                       >
                         接受
                       </button>
+                      {/* Owner only: add transport fees / manual surcharges
+                          before accepting. */}
+                      {mode === "owner" && (
+                        <button
+                          type="button"
+                          onClick={() => setPriceTarget(booking)}
+                          disabled={busyId === booking.id}
+                          className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-[#4A3B32] ring-1 ring-black/10 hover:bg-black/5 disabled:opacity-50"
+                        >
+                          調整價格
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() =>
@@ -317,6 +333,18 @@ export function BookingsManager({ mode, title, subtitle }: BookingsManagerProps)
           mode={mode}
           onClose={() => setDetailTarget(null)}
           onGenerateReport={(b) => setReportScope([b])}
+        />
+      )}
+
+      {priceTarget && (
+        <AdjustPriceModal
+          booking={priceTarget}
+          onClose={() => setPriceTarget(null)}
+          onAdjusted={(updated) => {
+            replace(updated);
+            setPriceTarget(null);
+            showToast("已更新預約價格。");
+          }}
         />
       )}
 
