@@ -62,6 +62,7 @@ export async function PATCH(
     proposalReason,
     proposalStatus,
     cancellationReason,
+    totalHkd,
   } = (body ?? {}) as {
     status?: unknown;
     proposalStartTime?: unknown;
@@ -69,6 +70,7 @@ export async function PATCH(
     proposalReason?: unknown;
     proposalStatus?: unknown;
     cancellationReason?: unknown;
+    totalHkd?: unknown;
   };
 
   const patch: UpdateBookingInput = {};
@@ -120,6 +122,20 @@ export async function PATCH(
       );
     }
     patch.proposalStatus = proposalStatus as string | null;
+  }
+
+  if (totalHkd !== undefined) {
+    if (
+      typeof totalHkd !== "number" ||
+      !Number.isInteger(totalHkd) ||
+      totalHkd < 0
+    ) {
+      return NextResponse.json(
+        { error: "totalHkd must be a non-negative integer" },
+        { status: 400 },
+      );
+    }
+    patch.totalHkd = totalHkd;
   }
 
   if (cancellationReason !== undefined) {

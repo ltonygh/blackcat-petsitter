@@ -4,6 +4,7 @@ import {
   ADD_ONS,
   INCLUDED_TASKS,
   PRICING_COLUMNS,
+  SURCHARGES,
   type IncludedCell,
 } from "@/components/lib/pricing";
 
@@ -241,13 +242,13 @@ export default function Home() {
       </section>
 
       {/* Additional services */}
-      <section className="mt-12 rounded-3xl bg-[#FFEDB9] p-6 ring-1 ring-black/5 sm:p-10">
+      <section className="mt-12 rounded-3xl bg-white p-6 ring-1 ring-black/5 sm:p-10">
         <div className="mb-5 text-center">
           <h2 className="text-2xl font-bold text-[#4A3B32] sm:text-3xl">
             附加服務 Additional Services
           </h2>
           <p className="mt-2 text-sm text-[#4A3B32]/70">
-            適用於所有服務類型，按次加收費用。
+            適用於所有服務類型，預約時自行選擇，按次加收費用。
           </p>
         </div>
 
@@ -255,16 +256,53 @@ export default function Home() {
           {ADD_ONS.map((item) => (
             <li
               key={item.name}
-              className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-white px-4 py-3 text-sm ring-1 ring-black/5"
+              className="flex flex-wrap items-start justify-between gap-2 rounded-xl bg-[#FFF8E1] px-4 py-3 text-sm ring-1 ring-black/5"
             >
               <span className="font-medium text-[#4A3B32]">{item.name}</span>
-              <span className="font-semibold text-[#FFA259]">{item.price}</span>
+              {/* Each price tier gets its own row. */}
+              <span className="flex flex-col items-end gap-0.5 text-right">
+                {item.price.map((line) => (
+                  <span key={line} className="font-semibold text-[#FFA259]">
+                    {line}
+                  </span>
+                ))}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      {/* Other surcharges — applied automatically by the system */}
+      <section className="mt-8 rounded-3xl bg-white p-6 ring-1 ring-black/5 sm:p-10">
+        <div className="mb-5 text-center">
+          <h2 className="text-2xl font-bold text-[#4A3B32] sm:text-3xl">
+            其他額外收費 Other Surcharges
+          </h2>
+          <p className="mt-2 text-sm text-[#4A3B32]/70">
+            以下費用由系統按預約日期及時間自動計算，毋須自行選擇。
+          </p>
+        </div>
+
+        <ul className="mx-auto grid max-w-3xl gap-2">
+          {SURCHARGES.map((item) => (
+            <li
+              key={item.name}
+              className="flex flex-wrap items-start justify-between gap-2 rounded-xl bg-[#FFF8E1] px-4 py-3 text-sm ring-1 ring-black/5"
+            >
+              <span className="font-medium text-[#4A3B32]">{item.name}</span>
+              <span className="flex flex-col items-end gap-0.5 text-right">
+                {item.price.map((line) => (
+                  <span key={line} className="font-semibold text-[#FFA259]">
+                    {line}
+                  </span>
+                ))}
+              </span>
             </li>
           ))}
         </ul>
 
-        <p className="mx-auto mt-5 max-w-3xl text-center text-xs text-[#4A3B32]/60">
-          附加服務暫時未能於網上預約時選擇，保姆確認預約後會再與你核對並計算費用。
+        <p className="mx-auto mt-4 max-w-3xl text-center text-xs text-[#4A3B32]/60">
+          上述費用為起價，保姆會按實際情況（如位置偏遠、寵物特殊需要）於確認預約前通知最終收費。
         </p>
       </section>
 

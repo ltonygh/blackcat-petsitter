@@ -8,6 +8,7 @@ import {
   type CreateInlineBookingInput,
   type InlinePetData,
 } from "@/db/queries/bookings";
+import type { BookingLineItem } from "@/db/schema";
 import { DEFAULT_ORG_ID } from "@/db/queries/users";
 import { sendGuestBookingMagicLink } from "@/lib/email";
 
@@ -35,6 +36,28 @@ function asRecord(v: unknown): Record<string, unknown> | null {
   return v && typeof v === "object" && !Array.isArray(v)
     ? (v as Record<string, unknown>)
     : null;
+}
+
+/**
+ * Parse an array of pricing line items ({ id, name, price }). Returns null if
+ * the value is present but malformed (so the caller can 400).
+ */
+function parseLineItems(
+  v: unknown,
+): { ok: true; items: BookingLineItem[] } | { ok: false } {
+  if (v === undefined || v === null) return { ok: true, items: [] };
+  if (!Array.isArray(v)) return { ok: false };
+  const items: BookingLineItem[] = [];
+  for (const raw of v) {
+    const item = asRecord(raw);
+    if (!item) return { ok: false };
+    const { id, name, price } = item;
+    if (typeof id !== "string" || id.trim().length === 0) return { ok: false };
+    if (typeof name !== "string" || name.trim().length === 0) return { ok: false };
+    if (typeof price !== "number" || !Number.isFinite(price)) return { ok: false };
+    items.push({ id: id.trim(), name: name.trim(), price });
+  }
+  return { ok: true, items };
 }
 
 /**
@@ -193,6 +216,40 @@ export async function POST(request: Request) {
     notes: typeof petDataRaw.notes === "string" ? petDataRaw.notes : null,
   };
 
+  // --- addOns & surcharges --------------------------------------------------
+  const addOnsParsed = parseLineItems(root.addOns);
+  if (!addOnsParsed.ok) {
+    return NextResponse.json(
+      { error: "addOns must be an array of { id, name, price }" },
+      { status: 400 },
+    );
+  }
+  const surchargesParsed = parseLineItems(root.surcharges);
+  if (!surchargesParsed.ok) {
+    return NextResponse.json(
+      { error: "surcharges must be an array of { id, name, price }" },
+      { status: 400 },
+    );
+  }
+
+  // Optional integrity check: totalHkd should equal the sum of the submitted
+  // line items plus the (client-computed) base. We cannot know the authoritative
+  // base price server-side, so we only reject when the total is LESS than the
+  // sum of add-ons + surcharges — a total that cannot possibly be correct.
+  const itemsSum = [...addOnsParsed.items, ...surchargesParsed.items].reduce(
+    (acc, it) => acc + it.price,
+    0,
+  );
+  if (itemsSum > 0 && totalHkd < itemsSum) {
+    return NextResponse.json(
+      {
+        error:
+          "totalHkd is less than the sum of add-ons and surcharges",
+      },
+      { status: 400 },
+    );
+  }
+
   // --- guestData (required without a session) -------------------------------
   let guest: CreateInlineBookingInput["guestData"] = null;
   if (!authedUser) {
@@ -246,6 +303,8 @@ export async function POST(request: Request) {
       endTime: end,
       totalHkd,
       petData,
+      addOns: addOnsParsed.items,
+      surcharges: surchargesParsed.items,
       addressData: {
         fullAddress: addressData.fullAddress.trim(),
         doorCode:

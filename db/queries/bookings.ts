@@ -9,6 +9,7 @@ import {
   pets,
   users,
   type bookingStatus,
+  type BookingLineItem,
 } from "../schema";
 
 /**
@@ -61,6 +62,8 @@ export type UpdateBookingInput = {
   proposalStatus?: string | null;
   cancellationReason?: string | null;
   googleEventId?: string | null;
+  /** Owner price override (integer HKD). */
+  totalHkd?: number;
 };
 
 /**
@@ -255,6 +258,7 @@ export async function updateBooking(
         ...(input.googleEventId !== undefined
           ? { googleEventId: input.googleEventId }
           : {}),
+        ...(input.totalHkd !== undefined ? { totalHkd: input.totalHkd } : {}),
       })
       .where(eq(bookings.id, bookingId))
       .returning();
@@ -266,6 +270,20 @@ export async function updateBooking(
         fromStatus: existing.status,
         toStatus: input.status,
         note: "Status changed via API",
+      });
+    }
+
+    // Log a price adjustment separately so it is visible in the audit trail.
+    if (
+      input.totalHkd !== undefined &&
+      input.totalHkd !== existing.totalHkd
+    ) {
+      await tx.insert(bookingEvents).values({
+        bookingId,
+        actorId,
+        fromStatus: existing.status,
+        toStatus: "price_adjusted",
+        note: `Price adjusted from ${existing.totalHkd} to ${input.totalHkd} HKD`,
       });
     }
 
@@ -344,6 +362,10 @@ export type CreateInlineBookingInput = {
   petData: InlinePetData;
   addressData: InlineAddressData;
   guestData?: InlineGuestData | null;
+  /** Optional add-on services (price line items). */
+  addOns?: BookingLineItem[];
+  /** Optional T&C surcharges (price line items). */
+  surcharges?: BookingLineItem[];
 };
 
 export type InlineBookingResult = {
@@ -460,6 +482,8 @@ export async function createBookingInline(
         guestName: isGuest ? (input.guestData?.name ?? null) : null,
         guestEmail: isGuest ? (input.guestData?.email.trim().toLowerCase() ?? null) : null,
         guestPhone: isGuest ? (input.guestData?.phone ?? null) : null,
+        addOns: input.addOns ?? [],
+        surcharges: input.surcharges ?? [],
       })
       .returning();
 

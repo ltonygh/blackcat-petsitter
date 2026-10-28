@@ -11,23 +11,23 @@ const SOCIAL_LINKS = [
     name: "Instagram",
     handle: "@blackcat.petsitter",
     href: "https://instagram.com/blackcat.petsitter",
-    icon: "\u{1F4F8}",
+    logo: "/instagram_logo.svg",
     // Brand colours
-    className: "bg-[#FFA259] text-white hover:bg-[#ff8f3d]",
+    className: "bg-[#F56040] text-white hover:bg-[#ff8f3d]",
   },
   {
     name: "WhatsApp",
     handle: "+852 9000 0000",
     href: "https://wa.me/85290000000",
-    icon: "\u{1F4AC}",
-    className: "bg-[#FFCB56] text-[#4A3B32] hover:bg-[#ffbe3a]",
+    logo: "/whatsapp_logo.svg",
+    className: "bg-[#25D366] text-white hover:bg-[#ff8f3d]",
   },
   {
     name: "Facebook",
     handle: "Blackcat Petsitter",
     href: "https://facebook.com/blackcat.petsitter",
-    icon: "\u{1F44D}",
-    className: "bg-white text-[#4A3B32] ring-1 ring-black/10 hover:bg-white/70",
+    logo: "/facebook_logo.svg",
+    className: "bg-[#3896FF] text-white hover:bg-[#ff8f3d]",
   },
 ] as const;
 
@@ -37,14 +37,14 @@ export default function SocialPage() {
       {/* Heading */}
       <section className="text-center">
         <span className="inline-flex w-fit items-center rounded-full bg-[#FFCB56] px-3 py-1 text-xs font-semibold text-[#4A3B32]">
-          社群媒體
+          社交媒體
         </span>
         <h1 className="mt-4 text-3xl font-bold leading-tight text-[#4A3B32] sm:text-4xl">
           追蹤我們 Follow Us
         </h1>
         <p className="mx-auto mt-3 max-w-lg text-sm leading-relaxed text-[#4A3B32]/75 sm:text-base">
-          緊貼我哋最新嘅毛孩護理貼士、保姆日常同獨家優惠。 有任何問題，
-          亦可以隨時透過 WhatsApp 搵我哋。
+          緊貼我哋最新嘅毛孩護理貼士、保姆日常同獨家優惠。
+          有任何問題，亦可以隨時透過 WhatsApp 搵我哋。
         </p>
       </section>
 
@@ -58,8 +58,15 @@ export default function SocialPage() {
             rel="noopener noreferrer"
             className={`flex flex-col items-center gap-2 rounded-2xl px-6 py-6 text-center font-semibold shadow-sm transition-colors ${link.className}`}
           >
-            <span className="text-3xl" aria-hidden>
-              {link.icon}
+            {/* Fixed box + object-contain keeps mismatched SVG sizes aligned. */}
+            <span className="flex h-12 w-12 items-center justify-center" aria-hidden>
+              <img
+                src={link.logo}
+                alt=""
+                width={48}
+                height={48}
+                className="h-10 w-10 object-contain"
+              />
             </span>
             <span className="text-lg">{link.name}</span>
             <span className="text-xs font-medium opacity-70">{link.handle}</span>

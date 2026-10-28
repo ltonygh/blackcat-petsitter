@@ -9,8 +9,16 @@ import { apiGet, apiPost, ApiError } from "@/components/lib/api";
 import { toIso } from "@/components/lib/format";
 import type { AddressRecord, Pet } from "@/types";
 import {
+  ADD_ON_DEFS,
+  addOnPrice,
+  buildAddOns,
+  buildSurcharges,
   calcPrice,
   MAX_CATS,
+  PILL_TIERS,
+  type BookingLineItem,
+  type PillTierId,
+  type SelectedAddOns,
   SERVICE_META,
   SERVICE_TYPES,
   type ServiceType,
@@ -52,6 +60,10 @@ interface WizardState {
   appearance: string;
   petNotes: string;
   agreed: boolean;
+  /** Add-on selections; surcharges are derived, never stored here. */
+  addOns: SelectedAddOns;
+  /** Pill count tier for the pill-feeding add-on. */
+  pillTier: PillTierId;
 }
 
 const INITIAL_STATE: WizardState = {
@@ -74,6 +86,8 @@ const INITIAL_STATE: WizardState = {
   appearance: "",
   petNotes: "",
   agreed: false,
+  addOns: {},
+  pillTier: "1-5",
 };
 
 const isCatService = (s: ServiceType) => SERVICE_META[s].petType === "cat";
@@ -223,10 +237,16 @@ export default function BookPage() {
     SERVICE_META[state.serviceType].durationMinutes,
   );
 
+  // Add-ons are user-selected; surcharges are always derived from date/time.
+  const addOns = buildAddOns(state.addOns, state.pillTier);
+  const surcharges = buildSurcharges(state.date, state.startTime);
+
   const breakdown = calcPrice({
     serviceType: state.serviceType,
     petWeight: state.petWeight,
     catCount: state.catCount,
+    addOns,
+    surcharges,
   });
   const total = breakdown.total;
 
@@ -302,6 +322,8 @@ export default function BookPage() {
         startTime: start,
         endTime: end,
         totalHkd: total,
+        addOns,
+        surcharges,
         addressData: {
           fullAddress: state.address.trim(),
           doorCode: state.doorCode.trim(),
@@ -371,6 +393,7 @@ export default function BookPage() {
             onServiceChange={updateServiceType}
             total={total}
             priceNotes={breakdown.notes}
+            surcharges={surcharges}
           />
         )}
         {step === 2 && (
@@ -401,6 +424,9 @@ export default function BookPage() {
             isGuest={isGuest}
             total={total}
             priceNotes={breakdown.notes}
+            base={breakdown.base}
+            addOns={addOns}
+            surcharges={surcharges}
             onAgree={(v) => update("agreed", v)}
           />
         )}
@@ -497,12 +523,14 @@ function StepOne({
   onServiceChange,
   total,
   priceNotes,
+  surcharges,
 }: {
   state: WizardState;
   onChange: <K extends keyof WizardState>(key: K, value: WizardState[K]) => void;
   onServiceChange: (serviceType: ServiceType) => void;
   total: number;
   priceNotes: string[];
+  surcharges: BookingLineItem[];
 }) {
   // Compute today only after mount to avoid prerender-time `new Date()`.
   const [today, setToday] = useState<string>("");
@@ -715,6 +743,32 @@ function StepOne({
           </p>
         </div>
       </div>
+
+      {/* Surcharges are derived from date/time — never user-toggled. */}
+      {surcharges.length > 0 && (
+        <div className="flex flex-col gap-2">
+          {surcharges.map((s) => (
+            <div
+              key={s.id}
+              role="status"
+              className="rounded-r-lg border-l-4 border-amber-500 bg-amber-50 p-3 text-sm text-amber-800"
+            >
+              {s.id === "rushAppointment" ? (
+                <p>
+                  <span className="font-semibold">加急預約：</span>
+                  所選日期少於 3 日，將額外收取 ${s.price} 起加急費。
+                </p>
+              ) : (
+                <p>
+                  <span className="font-semibold">非服務時間：</span>
+                  所選開始時間不在 09:00–21:00 之內，將額外收取 ${s.price}{" "}
+                  起附加費。
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
 
       <PriceSummary total={total} notes={priceNotes} />
     </div>
@@ -1118,6 +1172,75 @@ function StepThree({
         />
       </Field>
 
+      {/* ── Add-ons ── */}
+      <section className="rounded-xl bg-[#FFF8E1] p-4 ring-1 ring-black/5">
+        <h3 className="text-sm font-semibold text-[#4A3B32]">
+          附加服務 (Additional Services)
+        </h3>
+        <p className="mt-0.5 text-xs text-[#4A3B32]/60">
+          可選多項，費用即時計入總額。
+        </p>
+
+        <div className="mt-3 flex flex-col gap-2">
+          {ADD_ON_DEFS.map((def) => {
+            const checked = Boolean(state.addOns[def.id]);
+            const price = addOnPrice(def.id, state.pillTier);
+            return (
+              <div
+                key={def.id}
+                className="rounded-lg bg-white px-3 py-2.5 ring-1 ring-black/5"
+              >
+                <label className="flex items-center gap-3 text-sm text-[#4A3B32]">
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={(e) =>
+                      onChange("addOns", {
+                        ...state.addOns,
+                        [def.id]: e.target.checked,
+                      })
+                    }
+                    className="h-5 w-5 rounded border-black/20 accent-[#FFA259]"
+                  />
+                  <span className="flex-1">{def.label}</span>
+                  <span className="text-sm font-semibold text-[#FFA259]">
+                    {def.price === null
+                      ? `+$${price ?? PILL_TIERS[0].price}`
+                      : `+$${def.price}`}
+                  </span>
+                </label>
+
+                {/* Pill-feeding needs a quantity tier. */}
+                {def.id === "pillFeeding" && checked && (
+                  <div className="mt-2.5 flex items-center gap-2 border-t border-black/5 pt-2.5">
+                    <label
+                      htmlFor="pill-tier"
+                      className="text-xs text-[#4A3B32]/70"
+                    >
+                      藥丸數量
+                    </label>
+                    <select
+                      id="pill-tier"
+                      value={state.pillTier}
+                      onChange={(e) =>
+                        onChange("pillTier", e.target.value as PillTierId)
+                      }
+                      className="rounded-lg border border-black/10 bg-[#FFF8E1] px-2 py-1.5 text-xs text-[#4A3B32] outline-none focus:border-[#FFA259] focus:ring-2 focus:ring-[#FFA259]/30"
+                    >
+                      {PILL_TIERS.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.label}（+${t.price}）
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
       {/* Documents: no pet record exists until POST /api/bookings runs, so
           uploads happen from the dashboard afterwards. */}
       <div className="rounded-md border border-blue-200 bg-blue-50 p-4 text-blue-800">
@@ -1143,12 +1266,18 @@ function StepFour({
   isGuest,
   total,
   priceNotes,
+  base,
+  addOns,
+  surcharges,
   onAgree,
 }: {
   state: WizardState;
   isGuest: boolean;
   total: number;
   priceNotes: string[];
+  base: number;
+  addOns: BookingLineItem[];
+  surcharges: BookingLineItem[];
   onAgree: (v: boolean) => void;
 }) {
   const serviceMeta = SERVICE_META[state.serviceType];
@@ -1198,7 +1327,48 @@ function StepFour({
         ))}
       </dl>
 
-      <PriceSummary total={total} notes={priceNotes} />
+      {/* Itemised: Base + Add-ons + Surcharges = Total */}
+      <div className="rounded-xl bg-[#FFEDB9] px-4 py-3 ring-1 ring-black/5">
+        <dl className="space-y-1.5 text-sm text-[#4A3B32]">
+          <div className="flex justify-between">
+            <dt>基本服務費</dt>
+            <dd>HK${base}</dd>
+          </div>
+          {addOns.length > 0 && (
+            <>
+              <div className="pt-1 text-xs font-semibold text-[#4A3B32]/60">
+                附加服務
+              </div>
+              {addOns.map((item) => (
+                <div key={item.id} className="flex justify-between pl-3">
+                  <dt className="text-[#4A3B32]/80">{item.name}</dt>
+                  <dd className="text-[#4A3B32]/80">HK${item.price}</dd>
+                </div>
+              ))}
+            </>
+          )}
+          {surcharges.length > 0 && (
+            <>
+              <div className="pt-1 text-xs font-semibold text-[#4A3B32]/60">
+                附加費用（起）
+              </div>
+              {surcharges.map((item) => (
+                <div key={item.id} className="flex justify-between pl-3">
+                  <dt className="text-[#4A3B32]/80">{item.name}</dt>
+                  <dd className="text-[#4A3B32]/80">HK${item.price} 起</dd>
+                </div>
+              ))}
+            </>
+          )}
+        </dl>
+        <div className="mt-3 flex items-baseline justify-between gap-3 border-t border-black/10 pt-3">
+          <span className="text-sm font-semibold text-[#4A3B32]">參考總額</span>
+          <span className="text-xl font-bold text-[#4A3B32]">HK${total}</span>
+        </div>
+        <p className="mt-2 text-[11px] text-[#4A3B32]/50">
+          加急及非服務時間費用為起價，保姆確認實際情況後可能調整。
+        </p>
+      </div>
 
       <label className="flex items-start gap-3 text-sm text-[#4A3B32]">
         <input
@@ -1245,7 +1415,7 @@ function PriceSummary({ total, notes }: { total: number; notes: string[] }) {
         </ul>
       )}
       <p className="mt-2 text-[11px] text-[#4A3B32]/50">
-        附加服務（如剪指甲、餵藥等）將於保姆確認後另行計算。
+        以上為參考總額。加急及非服務時間費用為「起」價，保姆確認實際情況後可能調整。
       </p>
     </div>
   );

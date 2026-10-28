@@ -2,6 +2,7 @@ import { relations } from "drizzle-orm";
 import {
   boolean,
   integer,
+  jsonb,
   numeric,
   pgEnum,
   pgTable,
@@ -79,6 +80,13 @@ export const users = pgTable("users", {
 });
 
 // Bookings. Soft-deleted via deleted_at.
+/** A priced line item stored on a booking (add-on or surcharge). */
+export type BookingLineItem = {
+  id: string;
+  name: string;
+  price: number;
+};
+
 export const bookings = pgTable("bookings", {
   id: uuid("id").primaryKey().defaultRandom(),
   organizationId: uuid("organization_id")
@@ -119,6 +127,11 @@ export const bookings = pgTable("bookings", {
   // Google Calendar event id, set when the booking is accepted and pushed to
   // the Owner's calendar; cleared when the booking is cancelled/rejected.
   googleEventId: text("google_event_id"),
+  // Selected optional services (e.g. nail cutting). Array of line items:
+  //   [{ id, name, price }]
+  addOns: jsonb("add_ons").$type<BookingLineItem[]>().default([]).notNull(),
+  // T&C surcharges (e.g. rush appointment). Same line-item shape.
+  surcharges: jsonb("surcharges").$type<BookingLineItem[]>().default([]).notNull(),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
