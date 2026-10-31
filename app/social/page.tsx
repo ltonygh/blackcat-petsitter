@@ -17,8 +17,8 @@ const SOCIAL_LINKS = [
   },
   {
     name: "WhatsApp",
-    handle: "+852 9000 0000",
-    href: "https://wa.me/85290000000",
+    handle: "+852 5349 7731",
+    href: "https://wa.me/85253497731",
     logo: "/whatsapp_logo.svg",
     className: "bg-[#25D366] text-white hover:bg-[#ff8f3d]",
   },

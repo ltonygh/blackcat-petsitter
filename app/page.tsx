@@ -321,14 +321,17 @@ export default function Home() {
               href="/login"
               className="flex items-center justify-center gap-2 rounded-xl bg-white px-6 py-3 text-base font-semibold text-[#4A3B32] ring-1 ring-black/10 transition-colors hover:bg-white/80"
             >
-              <span aria-hidden>{"\u{1F535}"}</span> 使用 Google 登入
+              <img
+                src="/google_logo.svg"
+                alt=""
+                aria-hidden
+                width={20}
+                height={20}
+                className="h-5 w-5"
+              />{" "}
+              使用 Google 登入
             </Link>
-            <Link
-              href="/login"
-              className="flex items-center justify-center gap-2 rounded-xl bg-white px-6 py-3 text-base font-semibold text-[#4A3B32] ring-1 ring-black/10 transition-colors hover:bg-white/80"
-            >
-              <span aria-hidden>{"\u2709\uFE0F"}</span> 使用電郵登入
-            </Link>
+            
             <Link
               href="/book"
               className="flex items-center justify-center gap-2 rounded-xl bg-[#FFA259] px-6 py-3 text-base font-semibold text-white transition-colors hover:bg-[#ff8f3d]"

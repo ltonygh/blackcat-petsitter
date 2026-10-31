@@ -370,14 +370,14 @@ export interface AddOnRow {
 }
 
 export const ADD_ONS: AddOnRow[] = [
-  { name: "剪指甲 Nail-cutting", price: ["+ $30"] },
-  { name: "清潔耳朵 Ear-cleaning", price: ["+ $30"] },
+  { name: "剪指甲 Nail-cutting", price: ["+$30"] },
+  { name: "清潔耳朵 Ear-cleaning", price: ["+$30"] },
   { name: "餵藥 Pill-feeding", price: ["+$30（1–5 粒）", "+$50（6–10 粒）", "+$100（11+ 粒）"] },
-  { name: "注射 Injection", price: ["+ $50"] },
-  { name: "皮下輸液 Subcutaneous fluid injection", price: ["+ $100"] },
+  { name: "注射 Injection", price: ["+$50"] },
+  { name: "皮下輸液 Subcutaneous fluid injection", price: ["+$100"] },
 ];
 
 export const SURCHARGES: AddOnRow[] = [
-  { name: "緊急預約 Rush appointment（< 3 日前預約）", price: ["+$30 / 次 起"] },
+  { name: "緊急預約 Rush appointment（3天前預約）", price: ["+$30 / 次 起"] },
   { name: "非標準時段 Out of regular timeframe（09:00 前 / 21:00 後）", price: ["+$50 / 次 起"] },
 ];
