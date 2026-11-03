@@ -65,17 +65,17 @@ export function DocumentUpload({
   const busy = status === "uploading";
 
   return (
-    <div className="rounded-xl border border-black/10 bg-[#FFF8E1] p-4">
+    <div className="rounded-xl border border-black/10 bg-cream-50 p-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold text-[#4A3B32]">{label}</p>
-          {hint && <p className="text-xs text-[#4A3B32]/60">{hint}</p>}
+          <p className="text-sm font-semibold text-ink">{label}</p>
+          {hint && <p className="text-xs text-ink/60">{hint}</p>}
         </div>
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
           disabled={busy}
-          className="rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-[#4A3B32] ring-1 ring-black/10 hover:bg-black/5 disabled:opacity-50"
+          className="rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-ink ring-1 ring-black/10 hover:bg-black/5 disabled:opacity-50"
         >
           {status === "done" ? "重新上傳" : "選擇檔案"}
         </button>
@@ -93,18 +93,18 @@ export function DocumentUpload({
       </div>
 
       {fileName && (
-        <p className="mt-2 truncate text-xs text-[#4A3B32]/70">{fileName}</p>
+        <p className="mt-2 truncate text-xs text-ink/70">{fileName}</p>
       )}
 
       {busy && (
         <div className="mt-2">
           <div className="h-2 w-full overflow-hidden rounded-full bg-black/10">
             <div
-              className="h-full rounded-full bg-[#FFA259] transition-all"
+              className="h-full rounded-full bg-primary transition-all"
               style={{ width: `${percent}%` }}
             />
           </div>
-          <p className="mt-1 text-xs text-[#4A3B32]/60">
+          <p className="mt-1 text-xs text-ink/60">
             {stage} {percent}%
           </p>
         </div>

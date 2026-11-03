@@ -39,13 +39,31 @@ const TIME_PRESETS = [
   { id: "evening", label: "晚上", sub: "Evening", start: "18:00" },
 ] as const;
 
+type SlotId = (typeof TIME_PRESETS)[number]["id"];
+
+interface ExtraDay {
+  /** Stable key for React lists. */
+  key: string;
+  date: string;
+  /** "" means no specific time (whole day). */
+  slot: SlotId | "";
+}
+
 interface WizardState {
   serviceType: ServiceType;
   date: string;
   startTime: string; // HH:mm
+  /**
+   * Extra days for a multi-day booking. The primary `date` above is always
+   * day 1; these are additional visits. Each carries its own optional slot.
+   */
+  extraDays: ExtraDay[];
   // NOTE: no endTime — it is derived from startTime + service duration.
   address: string;
-  doorCode: string;
+  /** Region (地區), e.g. "九龍". Combined with `estate` into fullAddress. */
+  region: string;
+  /** Estate / building name (屋苑/大廈名稱). */
+  estate: string;
   // Contact — guestData when signed out, auto-filled when signed in.
   guestTitle: "" | "先生" | "女士";
   guestName: string;
@@ -71,8 +89,10 @@ const INITIAL_STATE: WizardState = {
   serviceType: "Cat Sitting (Standard)",
   date: "",
   startTime: "09:00",
+  extraDays: [],
   address: "",
-  doorCode: "",
+  region: "",
+  estate: "",
   guestTitle: "",
   guestName: "",
   guestEmail: "",
@@ -175,15 +195,16 @@ export default function BookPage() {
     };
   }, [email]);
 
-  /** Selecting a saved address fills the address + access fields. */
+  /** Selecting a saved address fills the address fields. */
   const selectAddress = (id: string) => {
     setSelectedAddressId(id);
     const found = savedAddresses.find((a) => a.id === id);
     if (!found) return;
+    // Saved addresses store one combined string; keep it in `address` and
+    // leave region/estate blank so the user can refine them if they wish.
     setState((prev) => ({
       ...prev,
       address: found.fullAddress,
-      doorCode: found.doorCode ?? "",
     }));
   };
 
@@ -230,14 +251,26 @@ export default function BookPage() {
 
   // Add-ons are user-selected; surcharges are always derived from date/time.
   const addOns = buildAddOns(state.addOns, state.pillTier);
-  const surcharges = buildSurcharges(state.date, state.startTime);
 
+  // Multi-day: day 1 plus any extra dated rows. Days without a date are
+  // ignored (the user may have added a row and not filled it in yet).
+  const extraDaysFilled = state.extraDays.filter((d) => d.date.trim());
+  const dayCount = 1 + extraDaysFilled.length;
+  const billableDays = [
+    { date: state.date, startTime: state.startTime },
+    ...extraDaysFilled.map((d) => ({
+      date: d.date,
+      startTime: TIME_PRESETS.find((p) => p.id === d.slot)?.start ?? null,
+    })),
+  ];
+  const surcharges = buildSurchargesForDays(billableDays);
   const breakdown = calcPrice({
     serviceType: state.serviceType,
     petWeight: state.petWeight,
     catCount: state.catCount,
     addOns,
     surcharges,
+    dayCount,
   });
   const total = breakdown.total;
 
@@ -247,7 +280,7 @@ export default function BookPage() {
         return Boolean(state.date && state.startTime);
       case 2:
         return Boolean(
-          state.address.trim() &&
+          (state.region.trim() || state.estate.trim() || state.address.trim()) &&
             (!isGuest ||
               (state.guestTitle !== "" &&
                 state.guestName.trim() !== "" &&
@@ -312,12 +345,42 @@ export default function BookPage() {
         serviceType: state.serviceType,
         startTime: start,
         endTime: end,
+        // Multi-day: day 1 is the primary date, extras follow. Each carries
+        // an optional slot; "" means the day has no fixed time.
+        ...(state.extraDays.some((d) => d.date.trim())
+          ? {
+              days: [
+                { date: state.date, startTime: start, endTime: end },
+                ...state.extraDays
+                  .filter((d) => d.date.trim())
+                  .map((d) => {
+                    const preset = TIME_PRESETS.find((p) => p.id === d.slot);
+                    if (!preset) return { date: d.date };
+                    const s = toIso(d.date, preset.start);
+                    const e = s
+                      ? toIso(
+                          d.date,
+                          addMinutes(
+                            preset.start,
+                            SERVICE_META[state.serviceType].durationMinutes,
+                          ),
+                        )
+                      : null;
+                    return { date: d.date, startTime: s, endTime: e };
+                  }),
+              ],
+            }
+          : {}),
         totalHkd: total,
         addOns,
         surcharges,
         addressData: {
-          fullAddress: state.address.trim(),
-          doorCode: state.doorCode.trim(),
+          // Region + estate combine into one address string, e.g.
+          // "九龍, 淘大花園". Saved addresses fall back to the stored fullAddress.
+          fullAddress:
+            [state.region.trim(), state.estate.trim()]
+              .filter(Boolean)
+              .join(", ") || state.address.trim(),
           label: null,
         },
         petData: {
@@ -364,10 +427,10 @@ export default function BookPage() {
   return (
     <main className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 sm:py-12">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-[#4A3B32] sm:text-3xl">
+        <h1 className="text-2xl font-bold text-ink sm:text-3xl">
           預約寵物保姆
         </h1>
-        <p className="mt-1 text-sm text-[#4A3B32]/70">
+        <p className="mt-1 text-sm text-ink/70">
           只需四個步驟，即可完成預約。
         </p>
       </div>
@@ -428,14 +491,14 @@ export default function BookPage() {
             <button
               type="button"
               onClick={back}
-              className="rounded-xl bg-white px-5 py-2.5 text-sm font-semibold text-[#4A3B32] ring-1 ring-black/10 transition-colors hover:bg-white/70"
+              className="rounded-xl bg-white px-5 py-2.5 text-sm font-semibold text-ink ring-1 ring-black/10 transition-colors hover:bg-white/70"
             >
               上一步
             </button>
           ) : (
             <Link
               href="/"
-              className="rounded-xl bg-white px-5 py-2.5 text-sm font-semibold text-[#4A3B32] ring-1 ring-black/10 transition-colors hover:bg-white/70"
+              className="rounded-xl bg-white px-5 py-2.5 text-sm font-semibold text-ink ring-1 ring-black/10 transition-colors hover:bg-white/70"
             >
               返回首頁
             </Link>
@@ -446,7 +509,7 @@ export default function BookPage() {
               type="button"
               onClick={next}
               disabled={!canProceed()}
-              className="rounded-xl bg-[#FFA259] px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#ff8f3d] disabled:cursor-not-allowed disabled:opacity-40"
+              className="rounded-xl bg-primary px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-40"
             >
               下一步
             </button>
@@ -455,7 +518,7 @@ export default function BookPage() {
               type="button"
               onClick={() => void handleSubmit()}
               disabled={!canProceed() || submitting}
-              className="rounded-xl bg-[#FFA259] px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#ff8f3d] disabled:cursor-not-allowed disabled:opacity-40"
+              className="rounded-xl bg-primary px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-40"
             >
               {submitting ? "提交中⋯" : "提交預約"}
             </button>
@@ -480,22 +543,22 @@ export default function BookPage() {
             <p className="text-4xl" aria-hidden>
               ✅
             </p>
-            <p className="text-sm text-[#4A3B32]/80">
+            <p className="text-sm text-ink/80">
               你嘅預約已提交，保姆確認後即可付款。
             </p>
             {isGuest && (
-              <p className="text-xs text-[#4A3B32]/70">
+              <p className="text-xs text-ink/70">
                 登入連結已發送至 {state.guestEmail.trim()}
                 ，登入後即可管理預約及上載疫苗證明。
               </p>
             )}
-            <p className="text-xs text-[#4A3B32]/60">
+            <p className="text-xs text-ink/60">
               預約編號：{successId.slice(0, 8)}
             </p>
             <Link
               href="/dashboard"
               onClick={resetWizard}
-              className="mt-2 w-full rounded-xl bg-[#FFA259] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#ff8f3d]"
+              className="mt-2 w-full rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-600"
             >
               前往我的預約
             </Link>
@@ -529,6 +592,31 @@ function StepOne({
     setToday(new Date().toISOString().slice(0, 10));
   }, []);
 
+  const addExtraDay = () =>
+    onChange("extraDays", [
+      ...state.extraDays,
+      {
+        key:
+          typeof crypto !== "undefined" && "randomUUID" in crypto
+            ? crypto.randomUUID()
+            : String(Date.now() + Math.random()),
+        date: "",
+        slot: "",
+      },
+    ]);
+
+  const removeExtraDay = (key: string) =>
+    onChange(
+      "extraDays",
+      state.extraDays.filter((d) => d.key !== key),
+    );
+
+  const updateExtraDay = (key: string, patch: Partial<ExtraDay>) =>
+    onChange(
+      "extraDays",
+      state.extraDays.map((d) => (d.key === key ? { ...d, ...patch } : d)),
+    );
+
   const catService = isCatService(state.serviceType);
   // Derived, never typed: start time + the service's slot length.
   const estimatedEnd = addMinutes(
@@ -539,9 +627,9 @@ function StepOne({
   return (
     <div className="flex flex-col gap-6">
       {/* ── Service selection (distinct golden background) ── */}
-      <section className="rounded-2xl bg-[#FFCB56] p-4 ring-1 ring-black/5 sm:p-5">
-        <h2 className="text-lg font-semibold text-[#4A3B32]">選擇服務類型</h2>
-        <p className="mt-1 text-xs text-[#4A3B32]/70">
+      <section className="rounded-2xl bg-golden p-4 ring-1 ring-black/5 sm:p-5">
+        <h2 className="text-lg font-semibold text-ink">選擇服務類型</h2>
+        <p className="mt-1 text-xs text-ink/70">
           收費按服務類型計算，詳情請參閱首頁價目表。
         </p>
 
@@ -558,8 +646,8 @@ function StepOne({
                 onClick={() => onServiceChange(value)}
                 className={`flex items-center gap-3 rounded-xl px-4 py-3 text-left transition-colors ${
                   active
-                    ? "bg-[#FFA259] text-white ring-2 ring-[#4A3B32]/20"
-                    : "bg-white text-[#4A3B32] ring-1 ring-black/5 hover:bg-white/80"
+                    ? "bg-primary text-white ring-2 ring-ink/20"
+                    : "bg-white text-ink ring-1 ring-black/5 hover:bg-white/80"
                 }`}
               >
                 <span className="text-2xl" aria-hidden>
@@ -578,7 +666,7 @@ function StepOne({
                 </span>
                 <span
                   className={`ml-auto text-sm font-bold ${
-                    active ? "text-white" : "text-[#FFA259]"
+                    active ? "text-white" : "text-primary"
                   }`}
                 >
                   {value === "Dog Sitting"
@@ -597,11 +685,11 @@ function StepOne({
           <div className="mt-4 rounded-xl bg-white p-4 ring-1 ring-black/5">
             <label
               htmlFor="cat-count"
-              className="block text-sm font-semibold text-[#4A3B32]"
+              className="block text-sm font-semibold text-ink"
             >
               貓隻數量 (Number of Cats)
             </label>
-            <p className="mt-1 text-xs text-[#4A3B32]/60">
+            <p className="mt-1 text-xs text-ink/60">
               基本收費已包括 2 隻貓，每多 1 隻加 $20（最多 {MAX_CATS} 隻）。
             </p>
             <div className="mt-3 flex items-center gap-3">
@@ -610,7 +698,7 @@ function StepOne({
                 aria-label="減少貓隻數量"
                 onClick={() => onChange("catCount", Math.max(1, state.catCount - 1))}
                 disabled={state.catCount <= 1}
-                className="h-10 w-10 rounded-lg bg-[#FFEDB9] text-lg font-bold text-[#4A3B32] transition-colors hover:bg-[#FFCB56] disabled:cursor-not-allowed disabled:opacity-40"
+                className="h-10 w-10 rounded-lg bg-cream text-lg font-bold text-ink transition-colors hover:bg-golden disabled:cursor-not-allowed disabled:opacity-40"
               >
                 −
               </button>
@@ -629,7 +717,7 @@ function StepOne({
                       : 1,
                   );
                 }}
-                className="w-20 rounded-lg border border-black/10 bg-[#FFF8E1] px-3 py-2 text-center text-[#4A3B32] outline-none focus:border-[#FFA259] focus:ring-2 focus:ring-[#FFA259]/30"
+                className="w-20 rounded-lg border border-black/10 bg-cream-50 px-3 py-2 text-center text-ink outline-none focus:border-primary focus:ring-2 focus:ring-primary/30"
               />
               <button
                 type="button"
@@ -638,11 +726,11 @@ function StepOne({
                   onChange("catCount", Math.min(MAX_CATS, state.catCount + 1))
                 }
                 disabled={state.catCount >= MAX_CATS}
-                className="h-10 w-10 rounded-lg bg-[#FFEDB9] text-lg font-bold text-[#4A3B32] transition-colors hover:bg-[#FFCB56] disabled:cursor-not-allowed disabled:opacity-40"
+                className="h-10 w-10 rounded-lg bg-cream text-lg font-bold text-ink transition-colors hover:bg-golden disabled:cursor-not-allowed disabled:opacity-40"
               >
                 +
               </button>
-              <span className="text-xs text-[#4A3B32]/60">
+              <span className="text-xs text-ink/60">
                 共 {state.catCount} 隻
               </span>
             </div>
@@ -651,10 +739,10 @@ function StepOne({
       </section>
 
       {/* ── Date & time ── */}
-      <h2 className="text-lg font-semibold text-[#4A3B32]">選擇日期及時間</h2>
+      <h2 className="text-lg font-semibold text-ink">選擇日期及時間</h2>
 
       <div>
-        <label htmlFor="booking-date" className="mb-2 block text-sm font-medium text-[#4A3B32]">
+        <label htmlFor="booking-date" className="mb-2 block text-sm font-medium text-ink">
           日期
         </label>
         <input
@@ -667,9 +755,77 @@ function StepOne({
         />
       </div>
 
+        {/* Additional days (multi-day booking) */}
+        {state.extraDays.length > 0 && (
+        <div className="flex flex-col gap-2">
+          {state.extraDays.map((day, idx) => (
+            <div
+              key={day.key}
+              className="flex flex-wrap items-end gap-2 rounded-xl bg-cream-50 p-3 ring-1 ring-black/5"
+            >
+              <div className="min-w-0 flex-1">
+                <label
+                  htmlFor={`extra-day-${day.key}`}
+                  className="mb-1 block text-xs font-medium text-ink/70"
+                >
+                  第 {idx + 2} 天
+                </label>
+                <input
+                  id={`extra-day-${day.key}`}
+                  type="date"
+                  min={today}
+                  value={day.date}
+                  onChange={(e) => updateExtraDay(day.key, { date: e.target.value })}
+                  className={inputClass}
+                />
+              </div>
+              <div className="min-w-0 flex-1">
+                <label
+                  htmlFor={`extra-slot-${day.key}`}
+                  className="mb-1 block text-xs font-medium text-ink/70"
+                >
+                  時段（選填）
+                </label>
+                <select
+                  id={`extra-slot-${day.key}`}
+                  value={day.slot}
+                  onChange={(e) =>
+                    updateExtraDay(day.key, { slot: e.target.value as SlotId | "" })
+                  }
+                  className={inputClass}
+                >
+                  <option value="">全日 / 待定</option>
+                  {TIME_PRESETS.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.label} {p.sub}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <button
+                type="button"
+                onClick={() => removeExtraDay(day.key)}
+                aria-label={`移除第 ${idx + 2} 天`}
+                className="rounded-xl bg-white px-3 py-2.5 text-sm font-semibold text-red-600 ring-1 ring-red-200 hover:bg-red-50"
+              >
+                移除
+              </button>
+            </div>
+          ))}
+        </div>
+        )}
+
+        <button
+        type="button"
+        onClick={addExtraDay}
+        className="w-fit rounded-xl bg-white px-4 py-2 text-sm font-semibold text-ink ring-1 ring-black/10 hover:bg-black/5"
+        >
+        + 新增另一天
+        </button>
+
       {/* Quick-select time presets */}
       <div>
-        <span className="mb-2 block text-sm font-medium text-[#4A3B32]">
+        <span className="mb-2 block text-sm font-medium text-ink">
           快速選擇時段
         </span>
         <div className="grid grid-cols-3 gap-2">
@@ -683,14 +839,14 @@ function StepOne({
                 onClick={() => onChange("startTime", preset.start)}
                 className={`flex flex-col items-center gap-0.5 rounded-xl px-2 py-2.5 text-sm font-semibold transition-colors ${
                   active
-                    ? "bg-[#FFA259] text-white"
-                    : "bg-[#FFEDB9] text-[#4A3B32] ring-1 ring-black/5 hover:bg-[#FFCB56]"
+                    ? "bg-primary text-white"
+                    : "bg-cream text-ink ring-1 ring-black/5 hover:bg-golden"
                 }`}
               >
                 <span>{preset.label}</span>
                 <span
                   className={`text-[10px] font-normal ${
-                    active ? "text-white/80" : "text-[#4A3B32]/60"
+                    active ? "text-white/80" : "text-ink/60"
                   }`}
                 >
                   {preset.sub} · 由 {preset.start}
@@ -703,8 +859,8 @@ function StepOne({
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <label htmlFor="start-time" className="mb-2 block text-sm font-medium text-[#4A3B32]">
-            開始時間
+          <label htmlFor="start-time" className="mb-2 block text-sm font-medium text-ink">
+            或 輸入開始時間
           </label>
           <input
             id="start-time"
@@ -715,7 +871,7 @@ function StepOne({
           />
         </div>
         <div>
-          <label htmlFor="end-time" className="mb-2 block text-sm font-medium text-[#4A3B32]">
+          <label htmlFor="end-time" className="mb-2 block text-sm font-medium text-ink">
             預計結束時間
           </label>
           {/* Derived from start time + service duration; not user-editable. */}
@@ -726,9 +882,9 @@ function StepOne({
             readOnly
             disabled
             aria-describedby="end-time-hint"
-            className={`${inputClass} cursor-not-allowed bg-black/5 text-[#4A3B32]/70`}
+            className={`${inputClass} cursor-not-allowed bg-black/5 text-ink/70`}
           />
-          <p id="end-time-hint" className="mt-1 text-xs text-[#4A3B32]/60">
+          <p id="end-time-hint" className="mt-1 text-xs text-ink/60">
             {SERVICE_META[state.serviceType].label} 約需{" "}
             {SERVICE_META[state.serviceType].duration}，系統自動計算。
           </p>
@@ -789,21 +945,33 @@ function StepTwo({
 }) {
   return (
     <div className="flex flex-col gap-5">
-      <h2 className="text-lg font-semibold text-[#4A3B32]">聯絡資料及地址</h2>
+      <h2 className="text-lg font-semibold text-ink">聯絡資料及地址</h2>
 
       {/* Contact ------------------------------------------------------------ */}
       {!sessionResolved ? (
-        <p className="text-xs text-[#4A3B32]/60">正在確認登入狀態⋯</p>
+        <p className="text-xs text-ink/60">正在確認登入狀態⋯</p>
       ) : isGuest ? (
-        <div className="flex flex-col gap-4 rounded-xl bg-[#FFF8E1] p-4 ring-1 ring-black/5">
+        <div className="flex flex-col gap-4 rounded-xl bg-cream-50 p-4 ring-1 ring-black/5">
           <div>
-            <h3 className="text-sm font-semibold text-[#4A3B32]">聯絡人</h3>
-            <p className="mt-0.5 text-xs text-[#4A3B32]/60">
+            <h3 className="text-sm font-semibold text-ink">聯絡人</h3>
+            <p className="mt-0.5 text-xs text-ink/60">
               完成預約後，系統會寄出登入連結至你的電郵。
             </p>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-[7rem_1fr]">
+          
+            <Field label="姓名" htmlFor="guest-name">
+              <input
+                id="guest-name"
+                type="text"
+                value={state.guestName}
+                onChange={(e) => onChange("guestName", e.target.value)}
+                placeholder="例如：陳小明"
+                className={inputClass}
+              />
+            </Field>
+
             <Field label="稱謂" htmlFor="guest-title">
               <select
                 id="guest-title"
@@ -820,17 +988,6 @@ function StepTwo({
                 <option value="先生">先生</option>
                 <option value="女士">女士</option>
               </select>
-            </Field>
-
-            <Field label="姓名" htmlFor="guest-name">
-              <input
-                id="guest-name"
-                type="text"
-                value={state.guestName}
-                onChange={(e) => onChange("guestName", e.target.value)}
-                placeholder="例如：陳小明"
-                className={inputClass}
-              />
             </Field>
           </div>
 
@@ -882,16 +1039,16 @@ function StepTwo({
           </Field>
         </div>
       ) : (
-        <div className="rounded-xl bg-[#FFCB56]/40 px-4 py-3 text-sm text-[#4A3B32]">
+        <div className="rounded-xl bg-golden/40 px-4 py-3 text-sm text-ink">
           登入帳戶：<strong>{sessionEmail}</strong>
         </div>
       )}
 
       {/* Saved addresses (signed-in only) -------------------------------- */}
       {!isGuest && savedAddresses.length > 0 && (
-        <div className="rounded-xl bg-[#FFF8E1] p-4 ring-1 ring-black/5">
-          <h3 className="text-sm font-semibold text-[#4A3B32]">選擇已儲存地址</h3>
-          <p className="mt-0.5 text-xs text-[#4A3B32]/60">
+        <div className="rounded-xl bg-cream-50 p-4 ring-1 ring-black/5">
+          <h3 className="text-sm font-semibold text-ink">選擇已儲存地址</h3>
+          <p className="mt-0.5 text-xs text-ink/60">
             選擇後會自動填入下方欄位，仍可自行修改。
           </p>
           <div className="mt-3 grid gap-2">
@@ -905,8 +1062,8 @@ function StepTwo({
                   onClick={() => onSelectAddress(addr.id)}
                   className={`rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${
                     active
-                      ? "bg-[#FFA259] text-white"
-                      : "bg-white text-[#4A3B32] ring-1 ring-black/5 hover:bg-white/80"
+                      ? "bg-primary text-white"
+                      : "bg-white text-ink ring-1 ring-black/5 hover:bg-white/80"
                   }`}
                 >
                   <span className="block font-medium">
@@ -917,11 +1074,6 @@ function StepTwo({
                       {addr.fullAddress}
                     </span>
                   )}
-                  {addr.doorCode && (
-                    <span className="mt-0.5 block text-xs opacity-70">
-                      進入方式：{addr.doorCode}
-                    </span>
-                  )}
                 </button>
               );
             })}
@@ -929,28 +1081,29 @@ function StepTwo({
         </div>
       )}
 
-      {/* Address ------------------------------------------------------------ */}
-      <Field label="詳細地址" htmlFor="address-full">
-        <textarea
-          id="address-full"
-          rows={2}
-          value={state.address}
-          onChange={(e) => onChange("address", e.target.value)}
-          placeholder="香港九龍⋯⋯"
-          className={inputClass}
-        />
-      </Field>
-
-      <Field label="進入方式及密碼（選填）" htmlFor="address-door">
-        <input
-          id="address-door"
-          type="text"
-          value={state.doorCode}
-          onChange={(e) => onChange("doorCode", e.target.value)}
-          placeholder="例如：大門密碼 #1234 / 管理處取匙"
-          className={inputClass}
-        />
-      </Field>
+      {/* Address — region + estate; door codes are no longer collected. */}
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label="地區" htmlFor="address-region">
+          <input
+            id="address-region"
+            type="text"
+            value={state.region}
+            onChange={(e) => onChange("region", e.target.value)}
+            placeholder="九龍 / 香港島 / 新界"
+            className={inputClass}
+          />
+        </Field>
+        <Field label="屋苑／大廈名稱" htmlFor="address-estate">
+          <input
+            id="address-estate"
+            type="text"
+            value={state.estate}
+            onChange={(e) => onChange("estate", e.target.value)}
+            placeholder="淘大花園"
+            className={inputClass}
+          />
+        </Field>
+      </div>
     </div>
   );
 }
@@ -981,20 +1134,20 @@ function StepThree({
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="rounded-xl bg-[#FFCB56]/40 px-4 py-3 text-xs text-[#4A3B32]">
+      <div className="rounded-xl bg-golden/40 px-4 py-3 text-xs text-ink">
         已選擇服務：<strong>{serviceMeta.label}</strong>（{serviceMeta.subtitle}）
         {isCatService(state.serviceType) && state.catCount > 1 && (
           <span className="ml-1">· 共 {state.catCount} 隻貓</span>
         )}
       </div>
 
-      <h2 className="text-lg font-semibold text-[#4A3B32]">寵物資料</h2>
+      <h2 className="text-lg font-semibold text-ink">寵物資料</h2>
 
       {/* Saved pets (signed-in only), filtered to the service's pet type. */}
       {!isGuest && matchingPets.length > 0 && (
-        <div className="rounded-xl bg-[#FFF8E1] p-4 ring-1 ring-black/5">
-          <h3 className="text-sm font-semibold text-[#4A3B32]">選擇已儲存寵物</h3>
-          <p className="mt-0.5 text-xs text-[#4A3B32]/60">
+        <div className="rounded-xl bg-cream-50 p-4 ring-1 ring-black/5">
+          <h3 className="text-sm font-semibold text-ink">選擇已儲存寵物</h3>
+          <p className="mt-0.5 text-xs text-ink/60">
             選擇後會自動填入下方資料，仍可自行修改。
           </p>
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
@@ -1008,8 +1161,8 @@ function StepThree({
                   onClick={() => onSelectPet(pet.id)}
                   className={`rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${
                     active
-                      ? "bg-[#FFA259] text-white"
-                      : "bg-white text-[#4A3B32] ring-1 ring-black/5 hover:bg-white/80"
+                      ? "bg-primary text-white"
+                      : "bg-white text-ink ring-1 ring-black/5 hover:bg-white/80"
                   }`}
                 >
                   <span className="block font-medium">{pet.name}</span>
@@ -1093,7 +1246,7 @@ function StepThree({
       </div>
 
       {serviceMeta.petType === "dog" && (
-        <p className="rounded-lg bg-[#FFF8E1] px-3 py-2 text-xs text-[#4A3B32]/70">
+        <p className="rounded-lg bg-cream-50 px-3 py-2 text-xs text-ink/70">
           狗狗體重 ≥ 15kg 將按 $300 收費；如未填寫體重，暫以 $250 計算。
         </p>
       )}
@@ -1111,30 +1264,30 @@ function StepThree({
 
       {/* Health flags */}
       <div className="flex flex-col gap-3">
-        <label className="flex items-center gap-3 text-sm text-[#4A3B32]">
+        <label className="flex items-center gap-3 text-sm text-ink">
           <input
             type="checkbox"
             checked={state.vaccinated}
             onChange={(e) => onChange("vaccinated", e.target.checked)}
-            className="h-5 w-5 rounded border-black/20 accent-[#FFA259]"
+            className="h-5 w-5 rounded border-black/20 accent-primary"
           />
           已完成疫苗接種
         </label>
-        <label className="flex items-center gap-3 text-sm text-[#4A3B32]">
+        <label className="flex items-center gap-3 text-sm text-ink">
           <input
             type="checkbox"
             checked={state.sterilized}
             onChange={(e) => onChange("sterilized", e.target.checked)}
-            className="h-5 w-5 rounded border-black/20 accent-[#FFA259]"
+            className="h-5 w-5 rounded border-black/20 accent-primary"
           />
           已絕育 (Sterilized)
         </label>
-        <label className="flex items-center gap-3 text-sm text-[#4A3B32]">
+        <label className="flex items-center gap-3 text-sm text-ink">
           <input
             type="checkbox"
             checked={state.contagious}
             onChange={(e) => onChange("contagious", e.target.checked)}
-            className="h-5 w-5 rounded border-black/20 accent-[#FFA259]"
+            className="h-5 w-5 rounded border-black/20 accent-primary"
           />
           有傳染病 (Contagious)
         </label>
@@ -1164,11 +1317,11 @@ function StepThree({
       </Field>
 
       {/* ── Add-ons ── */}
-      <section className="rounded-xl bg-[#FFF8E1] p-4 ring-1 ring-black/5">
-        <h3 className="text-sm font-semibold text-[#4A3B32]">
+      <section className="rounded-xl bg-cream-50 p-4 ring-1 ring-black/5">
+        <h3 className="text-sm font-semibold text-ink">
           附加服務 (Additional Services)
         </h3>
-        <p className="mt-0.5 text-xs text-[#4A3B32]/60">
+        <p className="mt-0.5 text-xs text-ink/60">
           可選多項，費用即時計入總額。
         </p>
 
@@ -1181,7 +1334,7 @@ function StepThree({
                 key={def.id}
                 className="rounded-lg bg-white px-3 py-2.5 ring-1 ring-black/5"
               >
-                <label className="flex items-center gap-3 text-sm text-[#4A3B32]">
+                <label className="flex items-center gap-3 text-sm text-ink">
                   <input
                     type="checkbox"
                     checked={checked}
@@ -1191,10 +1344,10 @@ function StepThree({
                         [def.id]: e.target.checked,
                       })
                     }
-                    className="h-5 w-5 rounded border-black/20 accent-[#FFA259]"
+                    className="h-5 w-5 rounded border-black/20 accent-primary"
                   />
                   <span className="flex-1">{def.label}</span>
-                  <span className="text-sm font-semibold text-[#FFA259]">
+                  <span className="text-sm font-semibold text-primary">
                     {def.price === null
                       ? `+$${price ?? PILL_TIERS[0].price}`
                       : `+$${def.price}`}
@@ -1206,7 +1359,7 @@ function StepThree({
                   <div className="mt-2.5 flex items-center gap-2 border-t border-black/5 pt-2.5">
                     <label
                       htmlFor="pill-tier"
-                      className="text-xs text-[#4A3B32]/70"
+                      className="text-xs text-ink/70"
                     >
                       藥丸數量
                     </label>
@@ -1216,7 +1369,7 @@ function StepThree({
                       onChange={(e) =>
                         onChange("pillTier", e.target.value as PillTierId)
                       }
-                      className="rounded-lg border border-black/10 bg-[#FFF8E1] px-2 py-1.5 text-xs text-[#4A3B32] outline-none focus:border-[#FFA259] focus:ring-2 focus:ring-[#FFA259]/30"
+                      className="rounded-lg border border-black/10 bg-cream-50 px-2 py-1.5 text-xs text-ink outline-none focus:border-primary focus:ring-2 focus:ring-primary/30"
                     >
                       {PILL_TIERS.map((t) => (
                         <option key={t.id} value={t.id}>
@@ -1280,7 +1433,15 @@ function StepFour({
     ...(isCatService(state.serviceType)
       ? [{ label: "貓隻數量", value: `${state.catCount} 隻` }]
       : []),
-    { label: "日期", value: state.date || "—" },
+    {
+      label: "日期",
+      value:
+        state.extraDays.filter((d) => d.date.trim()).length > 0
+          ? `${state.date}（共 ${
+              1 + state.extraDays.filter((d) => d.date.trim()).length
+            } 天，多日預約）`
+          : state.date || "—",
+    },
     {
       label: "時間",
       value: `${state.startTime} – ${addMinutes(
@@ -1288,8 +1449,27 @@ function StepFour({
         serviceMeta.durationMinutes,
       )}`,
     },
-    { label: "地址", value: state.address || "—" },
-    { label: "進入方式及密碼", value: state.doorCode || "—" },
+    ...(state.extraDays.filter((d) => d.date.trim()).length > 0
+      ? [
+          {
+            label: "其他日期",
+            value: state.extraDays
+              .filter((d) => d.date.trim())
+              .map((d) => {
+                const preset = TIME_PRESETS.find((p) => p.id === d.slot);
+                return preset ? `${d.date} ${preset.label}` : `${d.date} 全日`;
+              })
+              .join("、"),
+          },
+        ]
+      : []),
+    {
+      label: "地址",
+      value:
+        [state.region.trim(), state.estate.trim()].filter(Boolean).join(", ") ||
+        state.address ||
+        "—",
+    },
     {
       label: "寵物",
       value: state.petName
@@ -1307,74 +1487,74 @@ function StepFour({
 
   return (
     <div className="flex flex-col gap-5">
-      <h2 className="text-lg font-semibold text-[#4A3B32]">確認預約詳情</h2>
+      <h2 className="text-lg font-semibold text-ink">確認預約詳情</h2>
 
-      <dl className="divide-y divide-black/5 rounded-xl bg-[#FFF8E1] px-4 py-2">
+      <dl className="divide-y divide-black/5 rounded-xl bg-cream-50 px-4 py-2">
         {rows.map((row) => (
           <div key={row.label} className="grid grid-cols-3 gap-2 py-2.5 text-sm">
-            <dt className="font-medium text-[#4A3B32]/70">{row.label}</dt>
-            <dd className="col-span-2 break-words text-[#4A3B32]">{row.value}</dd>
+            <dt className="font-medium text-ink/70">{row.label}</dt>
+            <dd className="col-span-2 break-words text-ink">{row.value}</dd>
           </div>
         ))}
       </dl>
 
       {/* Itemised: Base + Add-ons + Surcharges = Total */}
-      <div className="rounded-xl bg-[#FFEDB9] px-4 py-3 ring-1 ring-black/5">
-        <dl className="space-y-1.5 text-sm text-[#4A3B32]">
+      <div className="rounded-xl bg-cream px-4 py-3 ring-1 ring-black/5">
+        <dl className="space-y-1.5 text-sm text-ink">
           <div className="flex justify-between">
             <dt>基本服務費</dt>
             <dd>HK${base}</dd>
           </div>
           {addOns.length > 0 && (
             <>
-              <div className="pt-1 text-xs font-semibold text-[#4A3B32]/60">
+              <div className="pt-1 text-xs font-semibold text-ink/60">
                 附加服務
               </div>
               {addOns.map((item) => (
                 <div key={item.id} className="flex justify-between pl-3">
-                  <dt className="text-[#4A3B32]/80">{item.name}</dt>
-                  <dd className="text-[#4A3B32]/80">HK${item.price}</dd>
+                  <dt className="text-ink/80">{item.name}</dt>
+                  <dd className="text-ink/80">HK${item.price}</dd>
                 </div>
               ))}
             </>
           )}
           {surcharges.length > 0 && (
             <>
-              <div className="pt-1 text-xs font-semibold text-[#4A3B32]/60">
+              <div className="pt-1 text-xs font-semibold text-ink/60">
                 附加費用（起）
               </div>
               {surcharges.map((item) => (
                 <div key={item.id} className="flex justify-between pl-3">
-                  <dt className="text-[#4A3B32]/80">{item.name}</dt>
-                  <dd className="text-[#4A3B32]/80">HK${item.price} 起</dd>
+                  <dt className="text-ink/80">{item.name}</dt>
+                  <dd className="text-ink/80">HK${item.price} 起</dd>
                 </div>
               ))}
             </>
           )}
         </dl>
         <div className="mt-3 flex items-baseline justify-between gap-3 border-t border-black/10 pt-3">
-          <span className="text-sm font-semibold text-[#4A3B32]">參考總額</span>
-          <span className="text-xl font-bold text-[#4A3B32]">HK${total}</span>
+          <span className="text-sm font-semibold text-ink">參考總額</span>
+          <span className="text-xl font-bold text-ink">HK${total}</span>
         </div>
-        <p className="mt-2 text-[11px] text-[#4A3B32]/50">
+        <p className="mt-2 text-[11px] text-ink/50">
           加急及非服務時間費用為起價，保姆確認實際情況後可能調整。
         </p>
       </div>
 
-      <label className="flex items-start gap-3 text-sm text-[#4A3B32]">
+      <label className="flex items-start gap-3 text-sm text-ink">
         <input
           type="checkbox"
           checked={state.agreed}
           onChange={(e) => onAgree(e.target.checked)}
-          className="mt-0.5 h-5 w-5 shrink-0 rounded border-black/20 accent-[#FFA259]"
+          className="mt-0.5 h-5 w-5 shrink-0 rounded border-black/20 accent-primary"
         />
         <span>
           我已閱讀並同意
-          <Link href="/terms" className="font-semibold text-[#FFA259] underline">
+          <Link href="/terms" className="font-semibold text-primary underline">
             服務條款
           </Link>
           及
-          <Link href="/privacy" className="font-semibold text-[#FFA259] underline">
+          <Link href="/privacy" className="font-semibold text-primary underline">
             私隱政策
           </Link>
           。
@@ -1387,25 +1567,25 @@ function StepFour({
 /* ─────────────────────────── Shared bits ─────────────────────────── */
 
 const inputClass =
-  "w-full rounded-xl border border-black/10 bg-[#FFF8E1] px-4 py-3 text-[#4A3B32] outline-none placeholder:text-[#4A3B32]/40 focus:border-[#FFA259] focus:ring-2 focus:ring-[#FFA259]/30";
+  "w-full rounded-xl border border-black/10 bg-cream-50 px-4 py-3 text-ink outline-none placeholder:text-ink/40 focus:border-primary focus:ring-2 focus:ring-primary/30";
 
 function PriceSummary({ total, notes }: { total: number; notes: string[] }) {
   return (
-    <div className="rounded-xl bg-[#FFEDB9] px-4 py-3 ring-1 ring-black/5">
+    <div className="rounded-xl bg-cream px-4 py-3 ring-1 ring-black/5">
       <div className="flex items-baseline justify-between gap-3">
-        <span className="text-sm font-semibold text-[#4A3B32]">預計費用</span>
-        <span className="text-xl font-bold text-[#4A3B32]">HK${total}</span>
+        <span className="text-sm font-semibold text-ink">預計費用</span>
+        <span className="text-xl font-bold text-ink">HK${total}</span>
       </div>
       {notes.length > 0 && (
         <ul className="mt-2 space-y-0.5">
           {notes.map((n) => (
-            <li key={n} className="text-xs text-[#4A3B32]/65">
+            <li key={n} className="text-xs text-ink/65">
               · {n}
             </li>
           ))}
         </ul>
       )}
-      <p className="mt-2 text-[11px] text-[#4A3B32]/50">
+      <p className="mt-2 text-[11px] text-ink/50">
         以上為參考總額。加急及非服務時間費用為「起」價，保姆確認實際情況後可能調整。
       </p>
     </div>
@@ -1423,7 +1603,7 @@ function Field({
 }) {
   return (
     <div>
-      <label htmlFor={htmlFor} className="mb-2 block text-sm font-medium text-[#4A3B32]">
+      <label htmlFor={htmlFor} className="mb-2 block text-sm font-medium text-ink">
         {label}
       </label>
       {children}

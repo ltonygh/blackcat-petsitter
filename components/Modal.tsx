@@ -53,12 +53,12 @@ export function Modal({
         className={`relative w-full ${maxWidth} max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-5 shadow-xl sm:p-6`}
       >
         <div className="mb-4 flex items-start justify-between gap-3">
-          <h2 className="text-lg font-bold text-[#4A3B32]">{title}</h2>
+          <h2 className="text-lg font-bold text-ink">{title}</h2>
           <button
             type="button"
             onClick={onClose}
             aria-label="關閉"
-            className="rounded-lg p-1 text-[#4A3B32]/60 hover:bg-black/5"
+            className="rounded-lg p-1 text-ink/60 hover:bg-black/5"
           >
             ✕
           </button>

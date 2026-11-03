@@ -216,15 +216,15 @@ export function ProfileSettingsModal({
   return (
     <Modal open onClose={onClose} title="個人資料" maxWidth="max-w-2xl">
       {loading ? (
-        <p className="py-8 text-center text-sm text-[#4A3B32]/60">載入中⋯</p>
+        <p className="py-8 text-center text-sm text-ink/60">載入中⋯</p>
       ) : (
         <div className="flex max-h-[70vh] flex-col gap-5 overflow-y-auto pr-1">
           {/* ── Basic info ── */}
           <section>
-            <h3 className="mb-2 text-sm font-semibold text-[#4A3B32]">
+            <h3 className="mb-2 text-sm font-semibold text-ink">
               基本資料
             </h3>
-            <div className="rounded-xl bg-[#FFCB56]/30 px-4 py-3 text-sm text-[#4A3B32]">
+            <div className="rounded-xl bg-golden/30 px-4 py-3 text-sm text-ink">
               登入電郵：<strong>{email || "—"}</strong>
             </div>
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -267,7 +267,7 @@ export function ProfileSettingsModal({
 
           {/* ── Address detail ── */}
           <section>
-            <h3 className="mb-2 text-sm font-semibold text-[#4A3B32]">
+            <h3 className="mb-2 text-sm font-semibold text-ink">
               地址及照顧細節
             </h3>
             {!addressId && (
@@ -299,7 +299,7 @@ export function ProfileSettingsModal({
                     </option>
                   ))}
                 </select>
-                <p className="mt-1 text-xs text-[#4A3B32]/50">
+                <p className="mt-1 text-xs text-ink/50">
                   每次只會儲存目前選取的地址。
                 </p>
               </div>
@@ -348,7 +348,7 @@ export function ProfileSettingsModal({
 
           {/* ── Pet detail ── */}
           <section>
-            <h3 className="mb-2 text-sm font-semibold text-[#4A3B32]">
+            <h3 className="mb-2 text-sm font-semibold text-ink">
               寵物詳細資料
             </h3>
             {pets.length === 0 ? (
@@ -464,7 +464,7 @@ export function ProfileSettingsModal({
               type="button"
               onClick={() => void handleSave()}
               disabled={!canSave}
-              className="rounded-xl bg-[#FFA259] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#ff8f3d] disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {saving ? "儲存中⋯" : "儲存"}
             </button>
@@ -472,7 +472,7 @@ export function ProfileSettingsModal({
               type="button"
               onClick={onClose}
               disabled={saving}
-              className="rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-[#4A3B32] ring-1 ring-black/10 hover:bg-black/5 disabled:opacity-50"
+              className="rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-ink ring-1 ring-black/10 hover:bg-black/5 disabled:opacity-50"
             >
               關閉
             </button>
@@ -483,7 +483,7 @@ export function ProfileSettingsModal({
   );
 }
 
-const labelClass = "mb-1.5 block text-xs font-medium text-[#4A3B32]/80";
+const labelClass = "mb-1.5 block text-xs font-medium text-ink/80";
 
 const inputClass =
-  "w-full rounded-xl border border-black/10 bg-[#FFF8E1] px-3 py-2 text-sm text-[#4A3B32] outline-none placeholder:text-[#4A3B32]/40 focus:border-[#FFA259] focus:ring-2 focus:ring-[#FFA259]/30";
+  "w-full rounded-xl border border-black/10 bg-cream-50 px-3 py-2 text-sm text-ink outline-none placeholder:text-ink/40 focus:border-primary focus:ring-2 focus:ring-primary/30";

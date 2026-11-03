@@ -199,19 +199,39 @@ export function buildSurcharges(
   dateISO: string,
   startTime: string,
 ): BookingLineItem[] {
+  return buildSurchargesForDays([{ date: dateISO, startTime }]);
+}
+
+/**
+ * Surcharges across a multi-day booking.
+ *
+ * - Rush (+$30): charged ONCE per booking, keyed on the first (earliest) day.
+ * - Out of hours (+$50): charged PER DAY, for each day whose start time falls
+ *   outside 09:00–21:00. Days with no chosen time cannot be out of hours.
+ */
+export function buildSurchargesForDays(
+  days: { date: string; startTime: string | null }[],
+): BookingLineItem[] {
   const items: BookingLineItem[] = [];
-  if (isRushBooking(dateISO)) {
+  const first = days[0];
+  if (first && isRushBooking(first.date)) {
     items.push({
       id: "rushAppointment",
       name: "加急預約 Rush appointment",
       price: RUSH_SURCHARGE,
     });
   }
-  if (isOutOfHours(startTime)) {
+  const outOfHoursDays = days.filter(
+    (d) => d.startTime !== null && isOutOfHours(d.startTime),
+  ).length;
+  if (outOfHoursDays > 0) {
     items.push({
       id: "outOfHours",
-      name: "非服務時間 Out of regular timeframe",
-      price: OUT_OF_HOURS_SURCHARGE,
+      name:
+        outOfHoursDays === 1
+          ? "非服務時間 Out of regular timeframe"
+          : `非服務時間 Out of regular timeframe（${outOfHoursDays} 天）`,
+      price: OUT_OF_HOURS_SURCHARGE * outOfHoursDays,
     });
   }
   return items;
@@ -239,6 +259,11 @@ export interface PriceInput {
   addOns?: BookingLineItem[];
   /** Auto-derived T&C surcharges. */
   surcharges?: BookingLineItem[];
+  /**
+   * Number of service days for a multi-day booking (default 1). Base fee and
+   * add-ons are charged per day; surcharges arrive already multiplied.
+   */
+  dayCount?: number;
 }
 
 export interface PriceBreakdown {
@@ -249,10 +274,16 @@ export interface PriceBreakdown {
   extraCats: number;
   /** true when a dog's weight pushed it into the $300 band. */
   heavyDog: boolean;
-  /** Base service fee only (before add-ons/surcharges). */
+  /** Base service fee only (before add-ons/surcharges), for ONE day. */
   base: number;
   addOnsTotal: number;
   surchargesTotal: number;
+  /** Days billed (>= 1). */
+  dayCount: number;
+  /** Per-day base fee including any extra-cat charge. */
+  dailyBase: number;
+  /** Per-day add-on subtotal. */
+  dailyAddOns: number;
 }
 
 function toWeight(value: string | number | null | undefined): number {
@@ -275,10 +306,14 @@ function clampCatCount(value: number | null | undefined): number {
  */
 export function calcPrice(input: PriceInput): PriceBreakdown {
   const notes: string[] = [];
+  const dayCount = Math.max(1, Math.floor(Number(input.dayCount ?? 1)) || 1);
   const addOns = input.addOns ?? [];
   const surcharges = input.surcharges ?? [];
-  const addOnsTotal = addOns.reduce((sum, i) => sum + i.price, 0);
+  const dailyAddOns = addOns.reduce((sum, i) => sum + i.price, 0);
+  // Add-ons are performed on every visit.
+  const addOnsTotal = dailyAddOns * dayCount;
   const surchargesTotal = surcharges.reduce((sum, i) => sum + i.price, 0);
+  const dayLabel = dayCount > 1 ? ` × ${dayCount} 天` : "";
 
   if (input.serviceType === "Dog Sitting") {
     const weight = toWeight(input.petWeight);
@@ -286,21 +321,32 @@ export function calcPrice(input: PriceInput): PriceBreakdown {
     const base = heavyDog ? PRICES.dogHeavy : PRICES.dogStandard;
     if (heavyDog) {
       notes.push(
-        `基本 $${PRICES.dogHeavy}（狗狗體重 ${weight}kg ≥ ${DOG_HEAVY_WEIGHT_KG}kg）`,
+        `基本 $${PRICES.dogHeavy}（狗狗體重 ${weight}kg ≥ ${DOG_HEAVY_WEIGHT_KG}kg）${dayLabel}`,
       );
     } else {
-      notes.push(`基本 $${PRICES.dogStandard}（狗狗體重 < ${DOG_HEAVY_WEIGHT_KG}kg）`);
+      notes.push(
+        `基本 $${PRICES.dogStandard}（狗狗體重 < ${DOG_HEAVY_WEIGHT_KG}kg）${dayLabel}`,
+      );
     }
-    for (const item of addOns) notes.push(`${item.name} +$${item.price}`);
+    for (const item of addOns) {
+      notes.push(
+        dayCount > 1
+          ? `${item.name} +$${item.price} × ${dayCount} 天`
+          : `${item.name} +$${item.price}`,
+      );
+    }
     for (const item of surcharges) notes.push(`${item.name} +$${item.price}`);
     return {
-      total: base + addOnsTotal + surchargesTotal,
+      total: base * dayCount + addOnsTotal + surchargesTotal,
       notes,
       extraCats: 0,
       heavyDog,
-      base,
+      base: base * dayCount,
       addOnsTotal,
       surchargesTotal,
+      dayCount,
+      dailyBase: base,
+      dailyAddOns,
     };
   }
 
@@ -311,23 +357,37 @@ export function calcPrice(input: PriceInput): PriceBreakdown {
   const catCount = clampCatCount(input.catCount);
   const extraCats = Math.max(0, catCount - CATS_INCLUDED_IN_BASE);
   const extraFee = extraCats * EXTRA_CAT_FEE;
+  const dailyBase = base + extraFee;
 
-  notes.push(`基本 $${base}（最多 ${CATS_INCLUDED_IN_BASE} 隻貓）`);
+  notes.push(`基本 $${base}（最多 ${CATS_INCLUDED_IN_BASE} 隻貓）${dayLabel}`);
   if (extraCats > 0) {
-    notes.push(`額外 ${extraCats} 隻貓 × $${EXTRA_CAT_FEE} = $${extraFee}`);
+    notes.push(
+      dayCount > 1
+        ? `額外 ${extraCats} 隻貓 × $${EXTRA_CAT_FEE} = $${extraFee} × ${dayCount} 天`
+        : `額外 ${extraCats} 隻貓 × $${EXTRA_CAT_FEE} = $${extraFee}`,
+    );
   }
-  for (const item of addOns) notes.push(`${item.name} +$${item.price}`);
+  for (const item of addOns) {
+    notes.push(
+      dayCount > 1
+        ? `${item.name} +$${item.price} × ${dayCount} 天`
+        : `${item.name} +$${item.price}`,
+    );
+  }
   for (const item of surcharges) notes.push(`${item.name} +$${item.price}`);
 
   return {
     // Extra cats are part of the base fee, not a line item.
-    total: base + extraFee + addOnsTotal + surchargesTotal,
+    total: dailyBase * dayCount + addOnsTotal + surchargesTotal,
     notes,
     extraCats,
     heavyDog: false,
-    base: base + extraFee,
+    base: dailyBase * dayCount,
     addOnsTotal,
     surchargesTotal,
+    dayCount,
+    dailyBase,
+    dailyAddOns,
   };
 }
 

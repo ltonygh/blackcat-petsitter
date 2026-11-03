@@ -42,7 +42,7 @@ export function Header({ session, signOutAction }: HeaderProps) {
         {/* Logo */}
         <Link
           href="/"
-          className="flex items-center gap-2 text-lg font-bold tracking-tight text-[#4A3B32]"
+          className="flex items-center gap-2 text-lg font-bold tracking-tight text-ink"
           onClick={() => setMobileOpen(false)}
         >
           <img
@@ -53,7 +53,7 @@ export function Header({ session, signOutAction }: HeaderProps) {
             height={32}
             className="h-8 w-8 rounded-full object-cover"
           />
-          Blackcat.petsitter
+          Blackcat Petsitter
         </Link>
 
         {/* Desktop nav */}
@@ -64,8 +64,8 @@ export function Header({ session, signOutAction }: HeaderProps) {
               href={link.href}
               className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                 isActive(link.href)
-                  ? "bg-white text-[#4A3B32]"
-                  : "text-[#4A3B32]/80 hover:bg-white/60 hover:text-[#4A3B32]"
+                  ? "bg-white text-ink"
+                  : "text-ink/80 hover:bg-white/60 hover:text-ink"
               }`}
             >
               {link.label}
@@ -75,7 +75,7 @@ export function Header({ session, signOutAction }: HeaderProps) {
           {user && (
             <Link
               href="/dashboard"
-              className="rounded-lg px-3 py-2 text-sm font-medium text-[#4A3B32]/80 hover:bg-white/60"
+              className="rounded-lg px-3 py-2 text-sm font-medium text-ink/80 hover:bg-white/60"
             >
               Dashboard
             </Link>
@@ -83,7 +83,7 @@ export function Header({ session, signOutAction }: HeaderProps) {
           {user?.role === "owner" && (
             <Link
               href="/owner"
-              className="rounded-lg px-3 py-2 text-sm font-medium text-[#4A3B32]/80 hover:bg-white/60"
+              className="rounded-lg px-3 py-2 text-sm font-medium text-ink/80 hover:bg-white/60"
             >
               Owner Dashboard
             </Link>
@@ -91,7 +91,7 @@ export function Header({ session, signOutAction }: HeaderProps) {
           {user?.role === "staff" && (
             <Link
               href="/staff"
-              className="rounded-lg px-3 py-2 text-sm font-medium text-[#4A3B32]/80 hover:bg-white/60"
+              className="rounded-lg px-3 py-2 text-sm font-medium text-ink/80 hover:bg-white/60"
             >
               Staff Dashboard
             </Link>
@@ -102,13 +102,13 @@ export function Header({ session, signOutAction }: HeaderProps) {
         <div className="hidden items-center gap-3 md:flex">
           {user ? (
             <>
-              <span className="max-w-[12rem] truncate text-sm text-[#4A3B32]/70">
+              <span className="max-w-[12rem] truncate text-sm text-ink/70">
                 {user.name || user.email}
               </span>
               <form action={signOutAction}>
                 <button
                   type="submit"
-                  className="rounded-xl bg-[#FFA259] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#ff8f3d]"
+                  className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-600"
                 >
                   登出
                 </button>
@@ -117,7 +117,7 @@ export function Header({ session, signOutAction }: HeaderProps) {
           ) : (
             <Link
               href="/login"
-              className="rounded-xl bg-[#FFA259] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#ff8f3d]"
+              className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-600"
             >
               登入
             </Link>
@@ -127,7 +127,7 @@ export function Header({ session, signOutAction }: HeaderProps) {
         {/* Mobile toggle */}
         <button
           type="button"
-          className="rounded-lg p-2 text-[#4A3B32] md:hidden"
+          className="rounded-lg p-2 text-ink md:hidden"
           aria-label="切換選單"
           aria-expanded={mobileOpen}
           onClick={() => setMobileOpen((v) => !v)}
@@ -140,7 +140,7 @@ export function Header({ session, signOutAction }: HeaderProps) {
 
       {/* Mobile menu */}
       {mobileOpen && (
-        <div className="border-t border-black/5 bg-[#FFEDB9] px-4 pb-4 md:hidden">
+        <div className="border-t border-black/5 bg-cream px-4 pb-4 md:hidden">
           <nav className="flex flex-col gap-1 pt-2">
             {NAV_LINKS.map((link) => (
               <Link
@@ -149,8 +149,8 @@ export function Header({ session, signOutAction }: HeaderProps) {
                 onClick={() => setMobileOpen(false)}
                 className={`rounded-lg px-3 py-2 text-sm font-medium ${
                   isActive(link.href)
-                    ? "bg-white text-[#4A3B32]"
-                    : "text-[#4A3B32]/80 hover:bg-white/60"
+                    ? "bg-white text-ink"
+                    : "text-ink/80 hover:bg-white/60"
                 }`}
               >
                 {link.label}
@@ -160,7 +160,7 @@ export function Header({ session, signOutAction }: HeaderProps) {
               <Link
                 href="/dashboard"
                 onClick={() => setMobileOpen(false)}
-                className="rounded-lg px-3 py-2 text-sm font-medium text-[#4A3B32]/80 hover:bg-white/60"
+                className="rounded-lg px-3 py-2 text-sm font-medium text-ink/80 hover:bg-white/60"
               >
                 Dashboard
               </Link>
@@ -169,7 +169,7 @@ export function Header({ session, signOutAction }: HeaderProps) {
               <Link
                 href="/owner"
                 onClick={() => setMobileOpen(false)}
-                className="rounded-lg px-3 py-2 text-sm font-medium text-[#4A3B32]/80 hover:bg-white/60"
+                className="rounded-lg px-3 py-2 text-sm font-medium text-ink/80 hover:bg-white/60"
               >
                 Owner Dashboard
               </Link>
@@ -178,7 +178,7 @@ export function Header({ session, signOutAction }: HeaderProps) {
               <Link
                 href="/staff"
                 onClick={() => setMobileOpen(false)}
-                className="rounded-lg px-3 py-2 text-sm font-medium text-[#4A3B32]/80 hover:bg-white/60"
+                className="rounded-lg px-3 py-2 text-sm font-medium text-ink/80 hover:bg-white/60"
               >
                 Staff Dashboard
               </Link>
@@ -187,13 +187,13 @@ export function Header({ session, signOutAction }: HeaderProps) {
             <div className="mt-2 border-t border-black/5 pt-3">
               {user ? (
                 <div className="flex flex-col gap-2">
-                  <span className="truncate text-sm text-[#4A3B32]/70">
+                  <span className="truncate text-sm text-ink/70">
                     {user.name || user.email}
                   </span>
                   <form action={signOutAction}>
                     <button
                       type="submit"
-                      className="w-full rounded-xl bg-[#FFA259] px-4 py-2 text-sm font-semibold text-white"
+                      className="w-full rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white"
                     >
                       登出
                     </button>
@@ -203,7 +203,7 @@ export function Header({ session, signOutAction }: HeaderProps) {
                 <Link
                   href="/login"
                   onClick={() => setMobileOpen(false)}
-                  className="block rounded-xl bg-[#FFA259] px-4 py-2 text-center text-sm font-semibold text-white"
+                  className="block rounded-xl bg-primary px-4 py-2 text-center text-sm font-semibold text-white"
                 >
                   登入
                 </Link>

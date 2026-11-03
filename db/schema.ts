@@ -1,6 +1,7 @@
 import { relations } from "drizzle-orm";
 import {
   boolean,
+  date,
   integer,
   jsonb,
   numeric,
@@ -174,6 +175,23 @@ export const bookingEvents = pgTable("booking_events", {
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
+});
+
+/**
+ * Per-day schedule for multi-day bookings. One row per day the service runs.
+ * start_time / end_time are NULLABLE because the user may not specify times for
+ * every day (e.g. "all day" or "to be arranged"). Tenancy is inherited via
+ * booking_id -> bookings.organization_id (booking_days has no organization_id
+ * and no RLS of its own; it is reached only through tenant-scoped bookings).
+ */
+export const bookingDays = pgTable("booking_days", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  bookingId: uuid("booking_id")
+    .notNull()
+    .references(() => bookings.id, { onDelete: "cascade" }),
+  date: date("date").notNull(),
+  startTime: timestamp("start_time", { withTimezone: true }),
+  endTime: timestamp("end_time", { withTimezone: true }),
 });
 
 // Pets owned by a user.
@@ -372,6 +390,7 @@ export const bookingsRelations = relations(bookings, ({ one, many }) => ({
     fields: [bookings.addressId],
     references: [addresses.id],
   }),
+  days: many(bookingDays),
   events: many(bookingEvents),
   reports: many(reports),
 }));
@@ -379,6 +398,13 @@ export const bookingsRelations = relations(bookings, ({ one, many }) => ({
 export const bookingEventsRelations = relations(bookingEvents, ({ one }) => ({
   booking: one(bookings, {
     fields: [bookingEvents.bookingId],
+    references: [bookings.id],
+  }),
+}));
+
+export const bookingDaysRelations = relations(bookingDays, ({ one }) => ({
+  booking: one(bookings, {
+    fields: [bookingDays.bookingId],
     references: [bookings.id],
   }),
 }));

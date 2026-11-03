@@ -42,6 +42,16 @@ export interface Pet {
   iconKey: string | null;
 }
 
+/** One day of a multi-day booking. Times are nullable — a day may be
+ *  booked without a specific window. */
+export interface BookingDay {
+  id: string;
+  bookingId: string;
+  date: string;
+  startTime: string | null;
+  endTime: string | null;
+}
+
 export interface Booking {
   id: string;
   userId: string;
@@ -58,6 +68,8 @@ export interface Booking {
    * Null until an adjustment occurs; never overwritten afterwards.
    */
   previousTotalHkd: number | null;
+  /** Multi-day schedule; absent/empty for single-visit bookings. */
+  days?: BookingDay[];
   conflictFlag: boolean;
   fitInFlag: boolean;
   proposalStartTime: string | null;

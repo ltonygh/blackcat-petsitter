@@ -6,6 +6,7 @@ import {
   listBookings,
   type BookingStatus,
   type CreateInlineBookingInput,
+  type InlineBookingDay,
   type InlinePetData,
 } from "@/db/queries/bookings";
 import type { BookingLineItem } from "@/db/schema";
@@ -113,8 +114,8 @@ export async function POST(request: Request) {
     );
   }
 
-  const start = typeof startTime === "string" ? new Date(startTime) : null;
-  const end = typeof endTime === "string" ? new Date(endTime) : null;
+  let start = typeof startTime === "string" ? new Date(startTime) : null;
+  let end = typeof endTime === "string" ? new Date(endTime) : null;
   if (!start || Number.isNaN(start.getTime())) {
     return NextResponse.json(
       { error: "startTime must be a valid ISO date" },
@@ -132,6 +133,82 @@ export async function POST(request: Request) {
       { error: "endTime must be after startTime" },
       { status: 400 },
     );
+  }
+
+  // --- days (optional multi-day schedule) -----------------------------------
+  // [{ date: "2026-10-29", startTime?: ISO, endTime?: ISO }, ...]
+  // The main booking record keeps its start/end; when days are provided we
+  // populate it from the FIRST day (whose times, if present, are authoritative).
+  const daysRaw = root.days;
+  type ParsedDay = { date: string; startTime: Date | null; endTime: Date | null };
+  const days: ParsedDay[] = [];
+  const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
+  if (daysRaw !== undefined && daysRaw !== null) {
+    if (!Array.isArray(daysRaw)) {
+      return NextResponse.json(
+        { error: "days must be an array" },
+        { status: 400 },
+      );
+    }
+    for (const entry of daysRaw) {
+      const d = asRecord(entry);
+      if (!d) {
+        return NextResponse.json(
+          { error: "each day must be an object" },
+          { status: 400 },
+        );
+      }
+      if (typeof d.date !== "string" || !DATE_ONLY.test(d.date)) {
+        return NextResponse.json(
+          { error: "each day.date must be a YYYY-MM-DD string" },
+          { status: 400 },
+        );
+      }
+      let dStart: Date | null = null;
+      let dEnd: Date | null = null;
+      if (d.startTime !== undefined && d.startTime !== null) {
+        if (typeof d.startTime !== "string") {
+          return NextResponse.json(
+            { error: "day.startTime must be an ISO string or null" },
+            { status: 400 },
+          );
+        }
+        dStart = new Date(d.startTime);
+        if (Number.isNaN(dStart.getTime())) {
+          return NextResponse.json(
+            { error: "day.startTime must be a valid ISO date" },
+            { status: 400 },
+          );
+        }
+      }
+      if (d.endTime !== undefined && d.endTime !== null) {
+        if (typeof d.endTime !== "string") {
+          return NextResponse.json(
+            { error: "day.endTime must be an ISO string or null" },
+            { status: 400 },
+          );
+        }
+        dEnd = new Date(d.endTime);
+        if (Number.isNaN(dEnd.getTime())) {
+          return NextResponse.json(
+            { error: "day.endTime must be a valid ISO date" },
+            { status: 400 },
+          );
+        }
+      }
+      if (dStart && dEnd && dEnd <= dStart) {
+        return NextResponse.json(
+          { error: "day.endTime must be after day.startTime" },
+          { status: 400 },
+        );
+      }
+      days.push({ date: d.date, startTime: dStart, endTime: dEnd });
+    }
+
+    // Populate the main booking times from the first day when it carries times.
+    const first = days[0];
+    if (first?.startTime) start = first.startTime;
+    if (first?.endTime) end = first.endTime;
   }
 
   // --- addressData ----------------------------------------------------------
@@ -293,6 +370,21 @@ export async function POST(request: Request) {
     };
   }
 
+  // start/end were validated above; when days provided they are sourced from
+  // the first day. Re-assert to satisfy the non-null contract of the query.
+  if (!start || !end || Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    return NextResponse.json(
+      { error: "startTime and endTime are required" },
+      { status: 400 },
+    );
+  }
+  if (end <= start) {
+    return NextResponse.json(
+      { error: "endTime must be after startTime" },
+      { status: 400 },
+    );
+  }
+
   const organizationId = authedUser ? authedUser.organizationId : DEFAULT_ORG_ID;
   const userId = authedUser ? authedUser.id : null;
 
@@ -305,6 +397,7 @@ export async function POST(request: Request) {
       petData,
       addOns: addOnsParsed.items,
       surcharges: surchargesParsed.items,
+      ...(days.length > 0 ? { days } : {}),
       addressData: {
         fullAddress: addressData.fullAddress.trim(),
         doorCode:

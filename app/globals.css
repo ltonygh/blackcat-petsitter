@@ -7,9 +7,23 @@
  */
 @theme {
   --color-cream: #ffedb9; /* Warm Cream — page background */
+  --color-cream-50: #fff8e1; /* Lightest cream — input / list surfaces */
+  --color-cream-100: #fff3d1; /* Hover tint on cream surfaces */
   --color-golden: #ffcb56; /* Golden Yellow — cards / sections */
   --color-primary: #ffa259; /* Soft Orange — primary CTA */
+  --color-primary-600: #ff8f3d; /* Primary hover */
+  --color-primary-700: #ffbe3a; /* Golden hover */
   --color-ink: #4a3b32; /* Dark Brown / Charcoal — text */
+
+  /* Client brand gradient (applied to the Home hero). */
+  --background-image-brand-gradient: linear-gradient(
+    135deg,
+    #efd0ca 0%,
+    #c1bcac 25%,
+    #979b8d 50%,
+    #5c7457 75%,
+    #214e34 100%
+  );
 }
 
 :root {

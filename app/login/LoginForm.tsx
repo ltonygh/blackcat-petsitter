@@ -17,7 +17,7 @@ export function LoginForm({
     <form action={signInWithGoogle}>
       <button
         type="submit"
-        className="flex w-full items-center justify-center gap-3 rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm font-semibold text-[#4A3B32] transition-colors hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FFA259]"
+        className="flex w-full items-center justify-center gap-3 rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm font-semibold text-ink transition-colors hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
       >
         {/* Plain <img>: the SVG is already tiny and needs no optimisation. */}
         <img

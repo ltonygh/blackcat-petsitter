@@ -56,13 +56,13 @@ export function PayNowModal({ booking, onClose, onPaid }: PayNowModalProps) {
   return (
     <Modal open title="付款" onClose={onClose} maxWidth="max-w-md">
       <div className="flex flex-col items-center gap-4">
-        <p className="text-center text-sm text-[#4A3B32]/80">
+        <p className="text-center text-sm text-ink/80">
           請使用您的銀行 App 或 PayMe 掃描 QR Code 付款。完成後，請點擊下方按鈕並將截圖發送給保姆。
         </p>
 
         {/* Amount */}
         <div className="flex flex-col items-center gap-1">
-          <span className="text-2xl font-bold text-[#4A3B32]">
+          <span className="text-2xl font-bold text-ink">
             {formatHkd(booking.totalHkd)}
           </span>
           {adjusted && (
@@ -81,7 +81,7 @@ export function PayNowModal({ booking, onClose, onPaid }: PayNowModalProps) {
         <div
           role="tablist"
           aria-label="付款方式"
-          className="flex w-full gap-1 rounded-xl bg-[#FFF8E1] p-1"
+          className="flex w-full gap-1 rounded-xl bg-cream-50 p-1"
         >
           <button
             type="button"
@@ -90,8 +90,8 @@ export function PayNowModal({ booking, onClose, onPaid }: PayNowModalProps) {
             onClick={() => setMethod("fps")}
             className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${
               method === "fps"
-                ? "bg-[#FFA259] text-white"
-                : "text-[#4A3B32] hover:bg-black/5"
+                ? "bg-primary text-white"
+                : "text-ink hover:bg-black/5"
             }`}
           >
             FPS 轉數快
@@ -103,8 +103,8 @@ export function PayNowModal({ booking, onClose, onPaid }: PayNowModalProps) {
             onClick={() => setMethod("payme")}
             className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${
               method === "payme"
-                ? "bg-[#FFA259] text-white"
-                : "text-[#4A3B32] hover:bg-black/5"
+                ? "bg-primary text-white"
+                : "text-ink hover:bg-black/5"
             }`}
           >
             PayMe
@@ -128,7 +128,7 @@ export function PayNowModal({ booking, onClose, onPaid }: PayNowModalProps) {
                 className="h-56 w-56 object-contain"
               />
             </div>
-            <p className="text-xs text-[#4A3B32]/70">
+            <p className="text-xs text-ink/70">
               FPS ID: {FPS_ID} ({FPS_ID_NAME})
             </p>
           </div>
@@ -152,13 +152,13 @@ export function PayNowModal({ booking, onClose, onPaid }: PayNowModalProps) {
                 PayMe temporarily unavailable
               </p>
             </div>
-            <p className="text-center text-xs text-[#4A3B32]/60">
+            <p className="text-center text-xs text-ink/60">
               請改用 FPS 轉數快付款，或聯絡保姆安排其他方式。
             </p>
           </div>
         )}
 
-        <div className="w-full rounded-xl bg-[#FFF8E1] px-4 py-3 text-xs text-[#4A3B32]/70">
+        <div className="w-full rounded-xl bg-cream-50 px-4 py-3 text-xs text-ink/70">
           預約編號：{booking.id.slice(0, 8)} · 服務：{booking.serviceType}
         </div>
 
@@ -176,7 +176,7 @@ export function PayNowModal({ booking, onClose, onPaid }: PayNowModalProps) {
             type="button"
             onClick={onClose}
             disabled={submitting}
-            className="flex-1 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-[#4A3B32] ring-1 ring-black/10 hover:bg-black/5 disabled:opacity-50"
+            className="flex-1 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-ink ring-1 ring-black/10 hover:bg-black/5 disabled:opacity-50"
           >
             取消
           </button>
@@ -184,7 +184,7 @@ export function PayNowModal({ booking, onClose, onPaid }: PayNowModalProps) {
             type="button"
             onClick={handlePaid}
             disabled={submitting || method === "payme"}
-            className="flex-1 rounded-xl bg-[#FFA259] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#ff8f3d] disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex-1 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {submitting ? "提交中⋯" : "我已付款"}
           </button>

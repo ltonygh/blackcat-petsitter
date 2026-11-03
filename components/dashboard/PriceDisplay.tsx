@@ -43,8 +43,8 @@ export function PriceDisplay({
         <span
           className={
             size === "lg"
-              ? "text-lg font-bold text-[#4A3B32]"
-              : "text-sm font-bold text-[#4A3B32]"
+              ? "text-lg font-bold text-ink"
+              : "text-sm font-bold text-ink"
           }
         >
           {formatHkd(booking.totalHkd)}

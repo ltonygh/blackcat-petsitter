@@ -76,7 +76,6 @@ export function BookingDetailModal({
       ? [{ label: "傳染病", value: "有（已申報）" }]
       : []),
     { label: "詳細地址", value: address?.fullAddress ?? "—" },
-    { label: "進入方式及密碼", value: address?.doorCode || "—" },
     ...(booking.pet?.appearance
       ? [{ label: "外觀與性格", value: booking.pet.appearance }]
       : []),
@@ -91,19 +90,19 @@ export function BookingDetailModal({
       <div className="flex flex-col gap-4">
         <div className="flex items-center gap-2">
           <StatusBadge status={booking.status} />
-          <span className="text-xs text-[#4A3B32]/50">
+          <span className="text-xs text-ink/50">
             編號：{booking.id.slice(0, 8)}
           </span>
         </div>
 
-        <dl className="divide-y divide-black/5 rounded-xl bg-[#FFF8E1] px-4 py-1">
+        <dl className="divide-y divide-black/5 rounded-xl bg-cream-50 px-4 py-1">
           {rows.map((row) => (
             <div
               key={row.label}
               className="grid grid-cols-3 gap-2 py-2.5 text-sm"
             >
-              <dt className="font-medium text-[#4A3B32]/70">{row.label}</dt>
-              <dd className="col-span-2 break-words text-[#4A3B32]">
+              <dt className="font-medium text-ink/70">{row.label}</dt>
+              <dd className="col-span-2 break-words text-ink">
                 {row.value}
               </dd>
             </div>
@@ -111,14 +110,14 @@ export function BookingDetailModal({
         </dl>
 
         {booking.status === "time_proposed" && booking.proposalStartTime && (
-          <div className="rounded-xl bg-[#FFEDB9] px-4 py-3 text-sm text-[#4A3B32]">
+          <div className="rounded-xl bg-cream px-4 py-3 text-sm text-ink">
             <p className="font-semibold">保姆建議新時間</p>
             <p className="mt-1 text-xs">
               {formatDateTime(booking.proposalStartTime)} →{" "}
               {formatDateTime(booking.proposalEndTime ?? booking.endTime)}
             </p>
             {booking.proposalReason && (
-              <p className="mt-1 text-xs text-[#4A3B32]/70">
+              <p className="mt-1 text-xs text-ink/70">
                 原因：{booking.proposalReason}
               </p>
             )}
@@ -173,7 +172,7 @@ export function BookingDetailModal({
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               placeholder="例如：行程有變，暫時未能安排。"
-              className="mt-2 w-full rounded-xl border border-red-200 bg-white px-3 py-2 text-sm text-[#4A3B32] outline-none focus:border-red-400 focus:ring-2 focus:ring-red-200"
+              className="mt-2 w-full rounded-xl border border-red-200 bg-white px-3 py-2 text-sm text-ink outline-none focus:border-red-400 focus:ring-2 focus:ring-red-200"
             />
             <p className="mt-1 text-xs text-red-700/70">
               取消後不可復原，如需重新預約請再次提交。
@@ -194,7 +193,7 @@ export function BookingDetailModal({
                   setError(null);
                 }}
                 disabled={submitting}
-                className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-[#4A3B32] ring-1 ring-black/10 hover:bg-black/5 disabled:opacity-50"
+                className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-ink ring-1 ring-black/10 hover:bg-black/5 disabled:opacity-50"
               >
                 返回
               </button>

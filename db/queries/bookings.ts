@@ -10,6 +10,7 @@ import {
   users,
   type bookingStatus,
   type BookingLineItem,
+  bookingDays,
 } from "../schema";
 
 /**
@@ -43,6 +44,7 @@ export type BookingWithDetails = typeof bookings.$inferSelect & {
     phone: string | null;
   } | null;
   address: typeof addresses.$inferSelect | null;
+  days: (typeof bookingDays.$inferSelect)[];
 };
 
 export type CreateBookingInput = {
@@ -175,6 +177,7 @@ export async function listBookings(
         pet: true,
         customer: true,
         address: true,
+        days: true,
       },
       orderBy: (b, { desc }) => [desc(b.createdAt)],
     });
@@ -364,6 +367,14 @@ export type InlineGuestData = {
   phone: string;
 };
 
+/** A single day in a multi-day booking. Times are optional. */
+export type InlineBookingDay = {
+  /** ISO date string, e.g. "2026-10-29" (stored as DATE). */
+  date: string;
+  startTime?: Date | string | null;
+  endTime?: Date | string | null;
+};
+
 export type CreateInlineBookingInput = {
   serviceType: string;
   startTime: Date;
@@ -376,6 +387,8 @@ export type CreateInlineBookingInput = {
   addOns?: BookingLineItem[];
   /** Optional T&C surcharges (price line items). */
   surcharges?: BookingLineItem[];
+  /** Optional per-day schedule for multi-day bookings. */
+  days?: InlineBookingDay[];
 };
 
 export type InlineBookingResult = {
@@ -504,6 +517,28 @@ export async function createBookingInline(
       toStatus: "pending",
       note: isGuest ? "Guest booking created" : "Booking created",
     });
+
+    // Persist the per-day schedule (multi-day bookings).
+    if (input.days && input.days.length > 0) {
+      await tx.insert(bookingDays).values(
+        input.days.map((d) => ({
+          bookingId: booking.id,
+          date: d.date,
+          startTime:
+            d.startTime === undefined || d.startTime === null
+              ? null
+              : d.startTime instanceof Date
+                ? d.startTime
+                : new Date(d.startTime),
+          endTime:
+            d.endTime === undefined || d.endTime === null
+              ? null
+              : d.endTime instanceof Date
+                ? d.endTime
+                : new Date(d.endTime),
+        })),
+      );
+    }
 
     return { booking, userId: finalUserId, createdGuestUser: resolved.createdGuestUser };
   });
