@@ -55,6 +55,27 @@ export const SERVICE_META: Record<ServiceType, ServiceMeta> = {
   },
 };
 
+/**
+ * Add minutes to an "HH:mm" string, wrapping at midnight.
+ * Shared by the booking wizard and the owner's "propose new time" modal so
+ * both derive the end time from the same service duration.
+ */
+export function addMinutes(hhmm: string, minutes: number): string {
+  const [h, m] = hhmm.split(":").map(Number);
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return hhmm;
+  const total = (h * 60 + m + minutes) % (24 * 60);
+  const hh = Math.floor(total / 60);
+  const mm = total % 60;
+  return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+}
+
+/** End time implied by a start time and the service's slot length. */
+export function estimateEndTime(startTime: string, service: string): string {
+  const meta = SERVICE_META[service as ServiceType];
+  if (!meta) return startTime;
+  return addMinutes(startTime, meta.durationMinutes);
+}
+
 /** A priced line item — mirrors the backend's `BookingLineItem` exactly. */
 export interface BookingLineItem {
   id: string;
@@ -197,8 +218,7 @@ export function buildSurcharges(
 }
 
 /** Dogs at or above this weight fall into the heavier price band. */
-export const DOG_HEAVY_WEIGHT_KG = 15;
-/** Cats included in the base fee; every cat beyond this is +$20. */
+export const DOG_HEAVY_WEIGHT_KG = 15;/** Cats included in the base fee; every cat beyond this is +$20. */
 export const CATS_INCLUDED_IN_BASE = 2;
 export const EXTRA_CAT_FEE = 20;
 

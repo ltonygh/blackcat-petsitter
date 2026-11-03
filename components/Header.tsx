@@ -45,9 +45,14 @@ export function Header({ session, signOutAction }: HeaderProps) {
           className="flex items-center gap-2 text-lg font-bold tracking-tight text-[#4A3B32]"
           onClick={() => setMobileOpen(false)}
         >
-          <span className="text-xl" aria-hidden>
-            🐈‍⬛
-          </span>
+          <img
+            src="/blackcat_petsitter_icon.png"
+            alt=""
+            aria-hidden
+            width={32}
+            height={32}
+            className="h-8 w-8 rounded-full object-cover"
+          />
           Blackcat.petsitter
         </Link>
 

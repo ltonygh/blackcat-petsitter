@@ -101,7 +101,7 @@ export function BookingsManager({ mode, title, subtitle }: BookingsManagerProps)
   /** Apply a status transition and merge the result back into the list. */
   async function setStatus(
     booking: BookingWithDetails,
-    status: "accepted" | "rejected" | "paid",
+    status: "accepted" | "rejected" | "paid" | "completed",
     label: string,
   ) {
     setBusyId(booking.id);
@@ -309,6 +309,22 @@ export function BookingsManager({ mode, title, subtitle }: BookingsManagerProps)
                         {busyId === booking.id ? "確認中⋯" : "確認收款"}
                       </button>
                     )}
+
+                  {/* Paid: owner marks the visit as done, which unlocks the
+                      report. Completion is an operational action, so staff may
+                      do it too — only price/payment stay owner-only. */}
+                  {booking.status === "paid" && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        void setStatus(booking, "completed", "已標記為完成。")
+                      }
+                      disabled={busyId === booking.id}
+                      className="rounded-xl bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-50"
+                    >
+                      {busyId === booking.id ? "更新中⋯" : "完成服務"}
+                    </button>
+                  )}
 
                   {(booking.status === "pending" ||
                     booking.status === "accepted") && (

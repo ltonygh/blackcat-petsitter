@@ -62,14 +62,16 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Image placeholder */}
-        <div className="relative flex aspect-[4/3] items-center justify-center overflow-hidden rounded-2xl bg-[#FFCB56]">
-          <div className="flex flex-col items-center gap-2 text-[#4A3B32]/70">
-            <span className="text-6xl" aria-hidden>
-              {"\u{1F415}"}
-            </span>
-            <span className="text-sm font-medium">圖片位置</span>
-          </div>
+        {/* Hero image — cropped 4:3, cats centred. Plain <img> keeps the
+            prerendered shell free of next/image's client-side runtime. */}
+        <div className="relative aspect-[4/3] overflow-hidden rounded-2xl shadow-md">
+          <img
+            src="/hero_img.png"
+            alt="Blackcat.petsitter 保姆正在照顧兩隻貓"
+            width={1258}
+            height={944}
+            className="h-full w-full object-cover"
+          />
         </div>
       </section>
 

@@ -258,7 +258,17 @@ export async function updateBooking(
         ...(input.googleEventId !== undefined
           ? { googleEventId: input.googleEventId }
           : {}),
-        ...(input.totalHkd !== undefined ? { totalHkd: input.totalHkd } : {}),
+        ...(input.totalHkd !== undefined
+          ? {
+              totalHkd: input.totalHkd,
+              // Capture the ORIGINAL price the first time it is overridden
+              // (only when not already recorded), so the UI can show the
+              // before/after. Subsequent edits keep the first original.
+              ...(existing.previousTotalHkd === null
+                ? { previousTotalHkd: existing.totalHkd }
+                : {}),
+            }
+          : {}),
       })
       .where(eq(bookings.id, bookingId))
       .returning();

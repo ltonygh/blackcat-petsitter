@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { Modal } from "@/components/Modal";
 import { formatDateTime, formatHkd } from "@/components/lib/format";
+import { PriceDisplay } from "./PriceDisplay";
 import { StatusBadge } from "@/components/StatusBadge";
 import type { BookingWithDetails } from "@/types";
 
@@ -81,7 +82,16 @@ export function StaffBookingDetailModal({
           <Row label="服務" value={booking.serviceType} />
           <Row label="開始" value={formatDateTime(booking.startTime)} />
           <Row label="結束" value={formatDateTime(booking.endTime)} />
-          <Row label="費用" value={formatHkd(booking.totalHkd)} />
+          {booking.previousTotalHkd !== null &&
+          booking.previousTotalHkd !== undefined &&
+          booking.previousTotalHkd !== booking.totalHkd ? (
+            <div className="flex items-start justify-between gap-3 py-1 text-sm">
+              <span className="shrink-0 text-[#4A3B32]/60">費用</span>
+              <PriceDisplay booking={booking} size="sm" align="right" />
+            </div>
+          ) : (
+            <Row label="費用" value={formatHkd(booking.totalHkd)} />
+          )}
         </Section>
 
         {/* Proposal + cancellation context -------------------------------- */}

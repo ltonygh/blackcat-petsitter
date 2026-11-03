@@ -10,6 +10,7 @@ import { toIso } from "@/components/lib/format";
 import type { AddressRecord, Pet } from "@/types";
 import {
   ADD_ON_DEFS,
+  addMinutes,
   addOnPrice,
   buildAddOns,
   buildSurcharges,
@@ -97,16 +98,6 @@ function petTypeLabel(type: string): string {
   if (type === "dog") return "狗狗";
   if (type === "cat") return "貓貓";
   return "其他";
-}
-
-/** Add minutes to an "HH:mm" string, wrapping at midnight. */
-function addMinutes(hhmm: string, minutes: number): string {
-  const [h, m] = hhmm.split(":").map(Number);
-  if (!Number.isFinite(h) || !Number.isFinite(m)) return hhmm;
-  const total = (h * 60 + m + minutes) % (24 * 60);
-  const hh = Math.floor(total / 60);
-  const mm = total % 60;
-  return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
 }
 
 /** Subset of GET /api/auth/session we rely on. */

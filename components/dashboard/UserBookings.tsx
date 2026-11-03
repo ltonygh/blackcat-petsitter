@@ -4,10 +4,11 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 import { apiGet, ApiError } from "@/components/lib/api";
-import { formatDateTime, formatHkd } from "@/components/lib/format";
+import { formatDateTime } from "@/components/lib/format";
 import { StatusBadge } from "@/components/StatusBadge";
 import type { BookingWithDetails } from "@/types";
 import { PayNowModal } from "./PayNowModal";
+import { PriceDisplay } from "./PriceDisplay";
 import { ProposalBanner } from "./ProposalBanner";
 import { BookingDetailModal } from "./BookingDetailModal";
 import { ProfileSettingsModal } from "./ProfileSettingsModal";
@@ -148,10 +149,8 @@ export function UserBookings() {
                     {formatDateTime(booking.endTime)}
                   </p>
                 </div>
-                <div className="text-right">
-                  <p className="text-lg font-bold text-[#4A3B32]">
-                    {formatHkd(booking.totalHkd)}
-                  </p>
+                <div className="flex flex-col items-end">
+                  <PriceDisplay booking={booking} size="lg" align="right" />
                   {booking.status === "accepted" && (
                     <button
                       type="button"

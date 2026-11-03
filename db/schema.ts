@@ -111,6 +111,10 @@ export const bookings = pgTable("bookings", {
   endTime: timestamp("end_time", { withTimezone: true }).notNull(),
   status: bookingStatus("status").notNull().default("pending"),
   totalHkd: integer("total_hkd").notNull(),
+  // The original total, captured the first time the Owner overrides the price.
+  // Null until an adjustment occurs; never overwritten afterwards so the UI can
+  // show "was X, now Y".
+  previousTotalHkd: integer("previous_total_hkd"),
   conflictFlag: boolean("conflict_flag").default(false),
   fitInFlag: boolean("fit_in_flag").default(false),
   proposalStartTime: timestamp("proposal_start_time", { withTimezone: true }),

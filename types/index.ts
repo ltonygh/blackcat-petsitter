@@ -53,6 +53,11 @@ export interface Booking {
   endTime: string;
   status: BookingStatus;
   totalHkd: number;
+  /**
+   * Original total, captured the first time the Owner overrides the price.
+   * Null until an adjustment occurs; never overwritten afterwards.
+   */
+  previousTotalHkd: number | null;
   conflictFlag: boolean;
   fitInFlag: boolean;
   proposalStartTime: string | null;

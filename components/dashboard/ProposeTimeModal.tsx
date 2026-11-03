@@ -9,6 +9,7 @@ import {
   isoToTimePart,
   toIso,
 } from "@/components/lib/format";
+import { estimateEndTime, SERVICE_META } from "@/components/lib/pricing";
 import type { BookingWithDetails } from "@/types";
 
 interface ProposeTimeModalProps {
@@ -30,12 +31,14 @@ export function ProposeTimeModal({
   const [startTime, setStartTime] = useState(
     isoToTimePart(booking.startTime) || "09:00",
   );
-  const [endTime, setEndTime] = useState(
-    isoToTimePart(booking.endTime) || "18:00",
-  );
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Derived, never typed: same SERVICE_META duration the customer's booking
+  // wizard uses, so an owner cannot propose an inconsistent window.
+  const endTime = estimateEndTime(startTime, booking.serviceType);
+  const duration = SERVICE_META[booking.serviceType as keyof typeof SERVICE_META];
 
   async function handleSubmit() {
     setError(null);
@@ -106,15 +109,25 @@ export function ProposeTimeModal({
             <label htmlFor="propose-end" className="mb-1 block text-sm font-medium text-[#4A3B32]">
               結束
             </label>
+            {/* Derived from start + service duration; not user-editable, so an
+                end time before the start time is impossible. */}
             <input
               id="propose-end"
-              type="time"
+              type="text"
               value={endTime}
-              onChange={(e) => setEndTime(e.target.value)}
-              className={input}
+              readOnly
+              disabled
+              aria-describedby="propose-end-hint"
+              className={`${input} cursor-not-allowed bg-black/5 text-[#4A3B32]/70`}
             />
           </div>
         </div>
+
+        <p id="propose-end-hint" className="-mt-2 text-xs text-[#4A3B32]/60">
+          {duration
+            ? `${duration.label} 約需 ${duration.duration}，系統自動計算結束時間。`
+            : "系統會按服務類型自動計算結束時間。"}
+        </p>
 
         <div>
           <label htmlFor="propose-reason" className="mb-1 block text-sm font-medium text-[#4A3B32]">
