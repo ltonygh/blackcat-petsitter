@@ -18,11 +18,11 @@ function IncludedMark({ value }: { value: IncludedCell }) {
   }
   if (value === "optional") {
     return (
-      <span className="text-xs font-medium text-ink/70">可選擇</span>
+      <span className="text-xs font-medium text-text/70">可選擇</span>
     );
   }
   return (
-    <span className="font-bold text-ink/25" aria-label="不包括">
+    <span className="font-bold text-text/25" aria-label="不包括">
       ✖
     </span>
   );
@@ -33,9 +33,9 @@ export default function Home() {
     <main className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
       {/* Hero — brand gradient; text forced to light for contrast on the
           dark green end of the gradient. */}
-      <section className="grid items-center gap-8 rounded-3xl bg-brand-gradient p-6 sm:p-10 md:grid-cols-2">
+      <section className="grid items-center gap-8 rounded-3xl bg-brand p-6 sm:p-10 md:grid-cols-2">
         <div className="flex flex-col gap-5">
-          <span className="inline-flex w-fit items-center rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-ink">
+          <span className="inline-flex w-fit items-center rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-text">
             香港寵物保姆平台
           </span>
           <h1 className="text-3xl font-bold leading-tight text-white sm:text-4xl md:text-5xl">
@@ -43,20 +43,20 @@ export default function Home() {
             <br />
             找個可靠的保姆
           </h1>
-          <p className="max-w-md text-base leading-relaxed text-cream/90">
+          <p className="max-w-md text-base leading-relaxed text-bg/90">
             無論係貓定狗，Blackcat.petsitter 都為你配對經驗豐富嘅寵物保姆，
             提供上門照顧、餵食、散步等一站式服務。安心出發，毛孩在家。
           </p>
           <div className="flex flex-wrap gap-3">
             <Link
               href="/book"
-              className="rounded-xl bg-primary px-6 py-3 text-base font-semibold text-white transition-colors hover:bg-primary-600"
+              className="rounded-xl bg-primary px-6 py-3 text-base font-semibold text-white transition-colors hover:bg-primary-hover"
             >
               立即預約
             </Link>
             <Link
               href="/social"
-              className="rounded-xl bg-white/15 px-6 py-3 text-base font-semibold text-white ring-1 ring-white/50 backdrop-blur-sm transition-colors hover:bg-white/25"
+              className="rounded-xl bg-white/40 px-6 py-3 text-base font-semibold text-white ring-1 ring-white/50 backdrop-blur-sm transition-colors hover:bg-white/60"
             >
               了解我們
             </Link>
@@ -79,10 +79,10 @@ export default function Home() {
       {/* Pricing Table */}
       <section id="pricing" className="mt-12">
         <div className="mb-6 text-center">
-          <h2 className="text-2xl font-bold text-ink sm:text-3xl">
+          <h2 className="text-2xl font-bold text-text sm:text-3xl">
             服務收費
           </h2>
-          <p className="mt-2 text-sm text-ink/70">
+          <p className="mt-2 text-sm text-text/70">
             透明定價，按需要選擇最合適嘅方案。
           </p>
         </div>
@@ -92,7 +92,7 @@ export default function Home() {
           <table className="w-full border-collapse bg-white text-left text-sm">
             <caption className="sr-only">服務收費表</caption>
             <thead>
-              <tr className="bg-golden text-ink">
+              <tr className="bg-card text-text">
                 <th scope="col" className="px-4 py-4 text-sm font-semibold">
                   項目
                 </th>
@@ -109,15 +109,15 @@ export default function Home() {
             </thead>
             <tbody className="divide-y divide-black/5">
               {/* Base fee */}
-              <tr className="bg-cream/50 align-top">
-                <th scope="row" className="px-4 py-4 font-semibold text-ink">
+              <tr className="bg-bg/50 align-top">
+                <th scope="row" className="px-4 py-4 font-semibold text-text">
                   基本收費 Base fee
                 </th>
                 {PRICING_COLUMNS.map((col) => (
                   <td key={col.service} className="px-4 py-4 text-center">
                     <ul className="flex flex-col gap-0.5">
                       {col.baseFee.map((line) => (
-                        <li key={line} className="text-ink">
+                        <li key={line} className="text-text">
                           {line}
                         </li>
                       ))}
@@ -128,13 +128,13 @@ export default function Home() {
 
               {/* Duration */}
               <tr className="align-top">
-                <th scope="row" className="px-4 py-4 font-semibold text-ink">
+                <th scope="row" className="px-4 py-4 font-semibold text-text">
                   服務時長 Duration
                 </th>
                 {PRICING_COLUMNS.map((col) => (
                   <td
                     key={col.service}
-                    className="px-4 py-4 text-center text-ink/80"
+                    className="px-4 py-4 text-center text-text/80"
                   >
                     {col.duration}
                   </td>
@@ -146,7 +146,7 @@ export default function Home() {
                 <th
                   scope="colgroup"
                   colSpan={PRICING_COLUMNS.length + 1}
-                  className="bg-golden/25 px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-ink/70"
+                  className="bg-card/25 px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-text/70"
                 >
                   包含服務 Included tasks
                 </th>
@@ -155,7 +155,7 @@ export default function Home() {
                 <tr key={row.task}>
                   <th
                     scope="row"
-                    className="px-4 py-3 text-left font-medium text-ink"
+                    className="px-4 py-3 text-left font-medium text-text"
                   >
                     {row.task}
                   </th>
@@ -177,7 +177,7 @@ export default function Home() {
                   <td key={col.service} className="px-4 py-4 text-center">
                     <Link
                       href="/book"
-                      className="inline-block rounded-xl bg-primary px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-600"
+                      className="inline-block rounded-xl bg-primary px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-hover"
                     >
                       預約此服務
                     </Link>
@@ -195,34 +195,34 @@ export default function Home() {
               key={col.service}
               className="overflow-hidden rounded-2xl bg-white ring-1 ring-black/5"
             >
-              <div className="bg-golden px-4 py-3">
-                <h3 className="text-base font-semibold text-ink">
+              <div className="bg-card px-4 py-3">
+                <h3 className="text-base font-semibold text-text">
                   {col.name}
                 </h3>
-                <p className="mt-0.5 text-xs text-ink/70">
+                <p className="mt-0.5 text-xs text-text/70">
                   時長：{col.duration}
                 </p>
               </div>
               <div className="px-4 py-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-ink/60">
+                <p className="text-xs font-semibold uppercase tracking-wide text-text/60">
                   基本收費
                 </p>
                 <ul className="mt-1 flex flex-col gap-0.5">
                   {col.baseFee.map((line) => (
-                    <li key={line} className="text-sm text-ink">
+                    <li key={line} className="text-sm text-text">
                       {line}
                     </li>
                   ))}
                 </ul>
 
-                <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-ink/60">
+                <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-text/60">
                   包含服務
                 </p>
                 <ul className="mt-1 divide-y divide-black/5">
                   {INCLUDED_TASKS.map((row) => (
                     <li
                       key={row.task}
-                      className="flex items-start justify-between gap-3 py-1.5 text-sm text-ink"
+                      className="flex items-start justify-between gap-3 py-1.5 text-sm text-text"
                     >
                       <span>{row.task}</span>
                       <span className="shrink-0">
@@ -234,7 +234,7 @@ export default function Home() {
 
                 <Link
                   href="/book"
-                  className="mt-4 block rounded-xl bg-primary px-5 py-2.5 text-center text-sm font-semibold text-white transition-colors hover:bg-primary-600"
+                  className="mt-4 block rounded-xl bg-primary px-5 py-2.5 text-center text-sm font-semibold text-white transition-colors hover:bg-primary-hover"
                 >
                   預約此服務
                 </Link>
@@ -247,10 +247,10 @@ export default function Home() {
       {/* Additional services */}
       <section className="mt-12 rounded-3xl bg-white p-6 ring-1 ring-black/5 sm:p-10">
         <div className="mb-5 text-center">
-          <h2 className="text-2xl font-bold text-ink sm:text-3xl">
+          <h2 className="text-2xl font-bold text-text sm:text-3xl">
             附加服務 Additional Services
           </h2>
-          <p className="mt-2 text-sm text-ink/70">
+          <p className="mt-2 text-sm text-text/70">
             適用於所有服務類型，預約時自行選擇，按次加收費用。
           </p>
         </div>
@@ -259,9 +259,9 @@ export default function Home() {
           {ADD_ONS.map((item) => (
             <li
               key={item.name}
-              className="flex flex-wrap items-start justify-between gap-2 rounded-xl bg-cream-50 px-4 py-3 text-sm ring-1 ring-black/5"
+              className="flex flex-wrap items-start justify-between gap-2 rounded-xl bg-surface px-4 py-3 text-sm ring-1 ring-black/5"
             >
-              <span className="font-medium text-ink">{item.name}</span>
+              <span className="font-medium text-text">{item.name}</span>
               {/* Each price tier gets its own row. */}
               <span className="flex flex-col items-end gap-0.5 text-right">
                 {item.price.map((line) => (
@@ -278,10 +278,10 @@ export default function Home() {
       {/* Other surcharges — applied automatically by the system */}
       <section className="mt-8 rounded-3xl bg-white p-6 ring-1 ring-black/5 sm:p-10">
         <div className="mb-5 text-center">
-          <h2 className="text-2xl font-bold text-ink sm:text-3xl">
+          <h2 className="text-2xl font-bold text-text sm:text-3xl">
             其他額外收費 Other Surcharges
           </h2>
-          <p className="mt-2 text-sm text-ink/70">
+          <p className="mt-2 text-sm text-text/70">
             以下費用由系統按預約日期及時間自動計算，毋須自行選擇。
           </p>
         </div>
@@ -290,9 +290,9 @@ export default function Home() {
           {SURCHARGES.map((item) => (
             <li
               key={item.name}
-              className="flex flex-wrap items-start justify-between gap-2 rounded-xl bg-cream-50 px-4 py-3 text-sm ring-1 ring-black/5"
+              className="flex flex-wrap items-start justify-between gap-2 rounded-xl bg-surface px-4 py-3 text-sm ring-1 ring-black/5"
             >
-              <span className="font-medium text-ink">{item.name}</span>
+              <span className="font-medium text-text">{item.name}</span>
               <span className="flex flex-col items-end gap-0.5 text-right">
                 {item.price.map((line) => (
                   <span key={line} className="font-semibold text-primary">
@@ -304,25 +304,25 @@ export default function Home() {
           ))}
         </ul>
 
-        <p className="mx-auto mt-4 max-w-3xl text-center text-xs text-ink/60">
+        <p className="mx-auto mt-4 max-w-3xl text-center text-xs text-text/60">
           上述費用為起價，保姆會按實際情況（如位置偏遠、寵物特殊需要）於確認預約前通知最終收費。
         </p>
       </section>
 
       {/* Login Portal */}
-      <section className="mt-12 rounded-3xl bg-golden p-6 sm:p-10">
+      <section className="mt-12 rounded-3xl bg-card p-6 sm:p-10">
         <div className="mx-auto max-w-xl text-center">
-          <h2 className="text-2xl font-bold text-ink sm:text-3xl">
+          <h2 className="text-2xl font-bold text-text sm:text-3xl">
             登入 / 開始預約
           </h2>
-          <p className="mt-2 text-sm text-ink/80">
+          <p className="mt-2 text-sm text-text/80">
             登入以管理預約同寵物檔案，或直接以訪客身份預約。
           </p>
 
           <div className="mt-6 flex flex-col gap-3">
             <Link
               href="/login"
-              className="flex items-center justify-center gap-2 rounded-xl bg-white px-6 py-3 text-base font-semibold text-ink ring-1 ring-black/10 transition-colors hover:bg-white/80"
+              className="flex items-center justify-center gap-2 rounded-xl bg-white px-6 py-3 text-base font-semibold text-text ring-1 ring-black/10 transition-colors hover:bg-white/80"
             >
               <img
                 src="/google_logo.svg"
@@ -337,7 +337,7 @@ export default function Home() {
             
             <Link
               href="/book"
-              className="flex items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3 text-base font-semibold text-white transition-colors hover:bg-primary-600"
+              className="flex items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3 text-base font-semibold text-white transition-colors hover:bg-primary-hover"
             >
               以訪客身份預約
             </Link>

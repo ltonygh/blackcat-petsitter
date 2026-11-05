@@ -60,9 +60,9 @@ export function AdjustPriceModal({
     <Modal open onClose={onClose} title="調整價格" maxWidth="max-w-md">
       <div className="flex flex-col gap-4">
         {/* Current price */}
-        <div className="flex items-baseline justify-between rounded-xl bg-cream-50 px-4 py-3">
-          <span className="text-sm text-ink/70">目前總額</span>
-          <span className="text-lg font-bold text-ink">
+        <div className="flex items-baseline justify-between rounded-xl bg-surface px-4 py-3">
+          <span className="text-sm text-text/70">目前總額</span>
+          <span className="text-lg font-bold text-text">
             {formatHkd(booking.totalHkd)}
           </span>
         </div>
@@ -70,7 +70,7 @@ export function AdjustPriceModal({
         <div>
           <label
             htmlFor="adjust-total"
-            className="mb-2 block text-sm font-medium text-ink"
+            className="mb-2 block text-sm font-medium text-text"
           >
             新總額 (New Total, HK$)
           </label>
@@ -90,7 +90,7 @@ export function AdjustPriceModal({
             </p>
           )}
           {changed && (
-            <p className="mt-1 text-xs text-ink/60">
+            <p className="mt-1 text-xs text-text/60">
               差額：{delta > 0 ? "+" : "−"}
               {formatHkd(Math.abs(delta))}
             </p>
@@ -100,7 +100,7 @@ export function AdjustPriceModal({
         <div>
           <label
             htmlFor="adjust-reason"
-            className="mb-2 block text-sm font-medium text-ink"
+            className="mb-2 block text-sm font-medium text-text"
           >
             原因（選填）
           </label>
@@ -112,7 +112,7 @@ export function AdjustPriceModal({
             placeholder="例如：交通費、額外護理"
             className={inputClass}
           />
-          <p className="mt-1 text-xs text-ink/50">
+          <p className="mt-1 text-xs text-text/50">
             原因僅供你填寫時參考，暫不會儲存至系統。
           </p>
         </div>
@@ -128,7 +128,7 @@ export function AdjustPriceModal({
             type="button"
             onClick={() => void handleSave()}
             disabled={!changed || saving}
-            className="rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
           >
             {saving ? "儲存中⋯" : "儲存價格"}
           </button>
@@ -136,7 +136,7 @@ export function AdjustPriceModal({
             type="button"
             onClick={onClose}
             disabled={saving}
-            className="rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-ink ring-1 ring-black/10 hover:bg-black/5 disabled:opacity-50"
+            className="rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-text ring-1 ring-black/10 hover:bg-black/5 disabled:opacity-50"
           >
             取消
           </button>
@@ -147,4 +147,4 @@ export function AdjustPriceModal({
 }
 
 const inputClass =
-  "w-full rounded-xl border border-black/10 bg-cream-50 px-4 py-3 text-ink outline-none placeholder:text-ink/40 focus:border-primary focus:ring-2 focus:ring-primary/30";
+  "w-full rounded-xl border border-black/10 bg-surface px-4 py-3 text-text outline-none placeholder:text-text/40 focus:border-primary focus:ring-2 focus:ring-primary/30";

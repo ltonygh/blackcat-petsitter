@@ -13,21 +13,21 @@ const SOCIAL_LINKS = [
     href: "https://instagram.com/blackcat.petsitter",
     logo: "/instagram_logo.svg",
     // Brand colours
-    className: "bg-[#F56040] text-white hover:bg-primary-600",
+    className: "bg-[#F56040] text-white hover:bg-primary-hover",
   },
   {
     name: "WhatsApp",
     handle: "+852 5349 7731",
     href: "https://wa.me/85253497731",
     logo: "/whatsapp_logo.svg",
-    className: "bg-[#25D366] text-white hover:bg-primary-600",
+    className: "bg-[#25D366] text-white hover:bg-primary-hover",
   },
   {
     name: "Facebook",
     handle: "Blackcat Petsitter",
     href: "https://facebook.com/blackcat.petsitter",
     logo: "/facebook_logo.svg",
-    className: "bg-[#3896FF] text-white hover:bg-primary-600",
+    className: "bg-[#3896FF] text-white hover:bg-primary-hover",
   },
 ] as const;
 
@@ -36,13 +36,13 @@ export default function SocialPage() {
     <main className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 sm:py-14">
       {/* Heading */}
       <section className="text-center">
-        <span className="inline-flex w-fit items-center rounded-full bg-golden px-3 py-1 text-xs font-semibold text-ink">
+        <span className="inline-flex w-fit items-center rounded-full bg-card px-3 py-1 text-xs font-semibold text-text">
           社交媒體
         </span>
-        <h1 className="mt-4 text-3xl font-bold leading-tight text-ink sm:text-4xl">
+        <h1 className="mt-4 text-3xl font-bold leading-tight text-text sm:text-4xl">
           追蹤我們 Follow Us
         </h1>
-        <p className="mx-auto mt-3 max-w-lg text-sm leading-relaxed text-ink/75 sm:text-base">
+        <p className="mx-auto mt-3 max-w-lg text-sm leading-relaxed text-text/75 sm:text-base">
           緊貼我哋最新嘅毛孩護理貼士、保姆日常同獨家優惠。
           有任何問題，亦可以隨時透過 WhatsApp 搵我哋。
         </p>
@@ -77,10 +77,10 @@ export default function SocialPage() {
       {/* Instagram feed placeholder (Behold.so) */}
       <section className="mt-12">
         <div className="mb-5 flex flex-col gap-1 text-center">
-          <h2 className="text-xl font-bold text-ink sm:text-2xl">
+          <h2 className="text-xl font-bold text-text sm:text-2xl">
             Instagram 最新動態
           </h2>
-          <p className="text-xs text-ink/60">
+          <p className="text-xs text-text/60">
             #blackcatpetsitter · 相片自動同步中
           </p>
         </div>
@@ -89,13 +89,13 @@ export default function SocialPage() {
           {Array.from({ length: 6 }).map((_, i) => (
             <div
               key={i}
-              className="flex aspect-square items-center justify-center rounded-2xl bg-golden/40 ring-1 ring-black/5"
+              className="flex aspect-square items-center justify-center rounded-2xl bg-card/40 ring-1 ring-black/5"
             >
               <div className="flex flex-col items-center gap-1 px-3 text-center">
                 <span className="text-2xl" aria-hidden>
                   {"\u{1F4F7}"}
                 </span>
-                <span className="text-xs font-medium text-ink/60">
+                <span className="text-xs font-medium text-text/60">
                   Instagram Feed Loading...
                 </span>
               </div>

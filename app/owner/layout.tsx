@@ -41,14 +41,14 @@ async function OwnerGuard({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div style={{ minHeight: "100vh" }}>
+    <div className="min-h-screen bg-bg" style={{ minHeight: "100vh" }}>
       <header
         style={{
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
           padding: "0.75rem 1.5rem",
-          borderBottom: "1px solid #e5e7eb",
+          borderBottom: "1px solid var(--color-surface-hover)",
         }}
       >
         <span style={{ fontWeight: 600 }}>Blackcat.petsitter · Owner</span>
@@ -77,7 +77,7 @@ export default function OwnerLayout({
     <Suspense
       fallback={
         <div
-          style={{ height: 57, borderBottom: "1px solid #e5e7eb" }}
+          style={{ height: 57, borderBottom: "1px solid var(--color-surface-hover)" }}
           aria-hidden
         />
       }

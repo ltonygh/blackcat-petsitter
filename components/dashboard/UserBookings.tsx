@@ -74,8 +74,8 @@ export function UserBookings() {
     <section>
       <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-ink">我的預約</h1>
-          <p className="mt-1 text-sm text-ink/70">
+          <h1 className="text-2xl font-bold text-text">我的預約</h1>
+          <p className="mt-1 text-sm text-text/70">
             查看預約狀態、付款及處理保姆嘅時間建議。
           </p>
         </div>
@@ -83,20 +83,20 @@ export function UserBookings() {
           <button
             type="button"
             onClick={() => void openProfile()}
-            className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-ink ring-1 ring-black/10 hover:bg-black/5"
+            className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-text ring-1 ring-black/10 hover:bg-black/5"
           >
             個人資料
           </button>
           <button
             type="button"
             onClick={() => void load()}
-            className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-ink ring-1 ring-black/10 hover:bg-black/5"
+            className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-text ring-1 ring-black/10 hover:bg-black/5"
           >
             重新整理
           </button>
           <Link
             href="/book"
-            className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-600"
+            className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-hover"
           >
             新預約
           </Link>
@@ -136,15 +136,15 @@ export function UserBookings() {
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <div className="flex items-center gap-2">
-                    <h2 className="text-base font-semibold text-ink">
+                    <h2 className="text-base font-semibold text-text">
                       {booking.serviceType}
                     </h2>
                     <StatusBadge status={booking.status} />
                   </div>
-                  <p className="mt-1 text-sm text-ink/70">
+                  <p className="mt-1 text-sm text-text/70">
                     寵物：{booking.pet?.name ?? "—"}
                   </p>
-                  <p className="text-sm text-ink/70">
+                  <p className="text-sm text-text/70">
                     {formatDateTime(booking.startTime)} →{" "}
                     {formatDateTime(booking.endTime)}
                   </p>
@@ -155,7 +155,7 @@ export function UserBookings() {
                     <button
                       type="button"
                       onClick={() => setPayTarget(booking)}
-                      className="mt-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-600"
+                      className="mt-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-hover"
                     >
                       立即付款
                     </button>
@@ -168,7 +168,7 @@ export function UserBookings() {
                   <button
                     type="button"
                     onClick={() => setDetailTarget(booking)}
-                    className="mt-2 block w-full rounded-xl bg-white px-4 py-2 text-sm font-semibold text-ink ring-1 ring-black/10 hover:bg-black/5 sm:ml-auto sm:w-auto"
+                    className="mt-2 block w-full rounded-xl bg-white px-4 py-2 text-sm font-semibold text-text ring-1 ring-black/10 hover:bg-black/5 sm:ml-auto sm:w-auto"
                   >
                     查看詳情
                   </button>
@@ -250,15 +250,15 @@ function EmptyState() {
       <p className="text-4xl" aria-hidden>
         🐾
       </p>
-      <p className="mt-3 text-base font-semibold text-ink">
+      <p className="mt-3 text-base font-semibold text-text">
         暫時未有預約
       </p>
-      <p className="mt-1 text-sm text-ink/70">
+      <p className="mt-1 text-sm text-text/70">
         開始預約你嘅第一個寵物保姆服務。
       </p>
       <Link
         href="/book"
-        className="mt-4 inline-block rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-600"
+        className="mt-4 inline-block rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-hover"
       >
         立即預約
       </Link>

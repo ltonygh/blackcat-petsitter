@@ -34,10 +34,10 @@ export function Stepper({ steps, current }: StepperProps) {
               <span
                 className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-bold transition-colors ${
                   isDone
-                    ? "bg-golden text-ink"
+                    ? "bg-card text-text"
                     : isActive
                       ? "bg-primary text-white"
-                      : "bg-white text-ink/50 ring-1 ring-black/10"
+                      : "bg-white text-text/50 ring-1 ring-black/10"
                 }`}
                 aria-current={isActive ? "step" : undefined}
               >
@@ -45,7 +45,7 @@ export function Stepper({ steps, current }: StepperProps) {
               </span>
               <span
                 className={`whitespace-nowrap text-xs font-medium ${
-                  isActive ? "text-ink" : "text-ink/60"
+                  isActive ? "text-text" : "text-text/60"
                 }`}
               >
                 {step.label}
@@ -55,7 +55,7 @@ export function Stepper({ steps, current }: StepperProps) {
             {index < steps.length - 1 && (
               <div
                 className={`mx-2 h-0.5 flex-1 rounded ${
-                  isDone ? "bg-golden" : "bg-black/10"
+                  isDone ? "bg-card" : "bg-black/10"
                 }`}
                 aria-hidden
               />

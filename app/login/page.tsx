@@ -48,8 +48,8 @@ export default function LoginPage() {
       <div className="flex w-full max-w-md flex-col gap-6">
         {/* Login for Google and Guest */}
         <section className="rounded-2xl bg-white p-6 shadow-md ring-1 ring-black/5 sm:p-8">
-          <h1 className="text-2xl font-bold text-ink">登入</h1>
-          <p className="mt-2 text-sm text-ink/70">
+          <h1 className="text-2xl font-bold text-text">登入</h1>
+          <p className="mt-2 text-sm text-text/70">
             使用 Google 帳戶登入以繼續。
           </p>
 
@@ -57,12 +57,12 @@ export default function LoginPage() {
             <LoginForm signInWithGoogle={signInWithGoogle} />
           </div>
 
-          <h2 className="text-xl mt-4 font-bold text-ink">訪客預約</h2>
-          <p className="mt-2 text-sm text-ink/70">以訪客身份繼續預約。</p>
+          <h2 className="text-xl mt-4 font-bold text-text">訪客預約</h2>
+          <p className="mt-2 text-sm text-text/70">以訪客身份繼續預約。</p>
 
           <Link
             href="/book"
-            className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm font-semibold text-ink transition-colors hover:bg-gray-50"
+            className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm font-semibold text-text transition-colors hover:bg-gray-50"
           >
             <span className="text-xs font-normal text-black">
               以訪客身份繼續

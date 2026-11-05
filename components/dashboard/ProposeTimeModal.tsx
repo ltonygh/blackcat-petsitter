@@ -75,12 +75,12 @@ export function ProposeTimeModal({
   return (
     <Modal open title="建議新時間" onClose={onClose} maxWidth="max-w-md">
       <div className="flex flex-col gap-4">
-        <p className="text-sm text-ink/70">
+        <p className="text-sm text-text/70">
           為 {booking.pet?.name ?? "此預約"} 建議一個新的服務時間。
         </p>
 
         <div>
-          <label htmlFor="propose-date" className="mb-1 block text-sm font-medium text-ink">
+          <label htmlFor="propose-date" className="mb-1 block text-sm font-medium text-text">
             日期
           </label>
           <input
@@ -94,7 +94,7 @@ export function ProposeTimeModal({
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label htmlFor="propose-start" className="mb-1 block text-sm font-medium text-ink">
+            <label htmlFor="propose-start" className="mb-1 block text-sm font-medium text-text">
               開始
             </label>
             <input
@@ -106,7 +106,7 @@ export function ProposeTimeModal({
             />
           </div>
           <div>
-            <label htmlFor="propose-end" className="mb-1 block text-sm font-medium text-ink">
+            <label htmlFor="propose-end" className="mb-1 block text-sm font-medium text-text">
               結束
             </label>
             {/* Derived from start + service duration; not user-editable, so an
@@ -118,19 +118,19 @@ export function ProposeTimeModal({
               readOnly
               disabled
               aria-describedby="propose-end-hint"
-              className={`${input} cursor-not-allowed bg-black/5 text-ink/70`}
+              className={`${input} cursor-not-allowed bg-black/5 text-text/70`}
             />
           </div>
         </div>
 
-        <p id="propose-end-hint" className="-mt-2 text-xs text-ink/60">
+        <p id="propose-end-hint" className="-mt-2 text-xs text-text/60">
           {duration
             ? `${duration.label} 約需 ${duration.duration}，系統自動計算結束時間。`
             : "系統會按服務類型自動計算結束時間。"}
         </p>
 
         <div>
-          <label htmlFor="propose-reason" className="mb-1 block text-sm font-medium text-ink">
+          <label htmlFor="propose-reason" className="mb-1 block text-sm font-medium text-text">
             原因（選填）
           </label>
           <textarea
@@ -154,7 +154,7 @@ export function ProposeTimeModal({
             type="button"
             onClick={onClose}
             disabled={submitting}
-            className="flex-1 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-ink ring-1 ring-black/10 hover:bg-black/5 disabled:opacity-50"
+            className="flex-1 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-text ring-1 ring-black/10 hover:bg-black/5 disabled:opacity-50"
           >
             取消
           </button>
@@ -162,7 +162,7 @@ export function ProposeTimeModal({
             type="button"
             onClick={() => void handleSubmit()}
             disabled={submitting}
-            className="flex-1 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-600 disabled:opacity-50"
+            className="flex-1 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-hover disabled:opacity-50"
           >
             {submitting ? "提交中⋯" : "送出建議"}
           </button>
@@ -173,4 +173,4 @@ export function ProposeTimeModal({
 }
 
 const input =
-  "w-full rounded-xl border border-black/10 bg-cream-50 px-3 py-2 text-sm text-ink outline-none focus:border-primary focus:ring-2 focus:ring-primary/30";
+  "w-full rounded-xl border border-black/10 bg-surface px-3 py-2 text-sm text-text outline-none focus:border-primary focus:ring-2 focus:ring-primary/30";

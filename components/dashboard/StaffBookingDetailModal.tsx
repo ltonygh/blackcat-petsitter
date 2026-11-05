@@ -37,7 +37,7 @@ export function StaffBookingDetailModal({
       <div className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center gap-2">
           <StatusBadge status={booking.status} />
-          <span className="text-xs text-ink/50">
+          <span className="text-xs text-text/50">
             編號：{booking.id.slice(0, 8)}
           </span>
         </div>
@@ -83,12 +83,12 @@ export function StaffBookingDetailModal({
           <Row label="結束" value={formatDateTime(booking.endTime)} />
           {booking.days && booking.days.length > 1 && (
             <div className="py-1 text-sm">
-              <p className="text-[#4A3B32]/60">多日預約（{booking.days.length} 天）</p>
+              <p className="text-text/60">多日預約（{booking.days.length} 天）</p>
               <ul className="mt-1 space-y-0.5">
                 {[...booking.days]
                   .sort((a, b) => a.date.localeCompare(b.date))
                   .map((d) => (
-                    <li key={d.id} className="text-ink">
+                    <li key={d.id} className="text-text">
                       {d.date}
                       {d.startTime ? ` ${formatDateTime(d.startTime)}` : " 全日"}
                     </li>
@@ -100,7 +100,7 @@ export function StaffBookingDetailModal({
           booking.previousTotalHkd !== undefined &&
           booking.previousTotalHkd !== booking.totalHkd ? (
             <div className="flex items-start justify-between gap-3 py-1 text-sm">
-              <span className="shrink-0 text-ink/60">費用</span>
+              <span className="shrink-0 text-text/60">費用</span>
               <PriceDisplay booking={booking} size="sm" align="right" />
             </div>
           ) : (
@@ -110,14 +110,14 @@ export function StaffBookingDetailModal({
 
         {/* Proposal + cancellation context -------------------------------- */}
         {booking.status === "time_proposed" && booking.proposalStartTime && (
-          <div className="rounded-xl bg-cream px-4 py-3 text-sm text-ink">
+          <div className="rounded-xl bg-bg px-4 py-3 text-sm text-text">
             <p className="font-semibold">已建議時間</p>
             <p className="mt-1 text-xs">
               {formatDateTime(booking.proposalStartTime)} →{" "}
               {formatDateTime(booking.proposalEndTime ?? booking.endTime)}
             </p>
             {booking.proposalReason && (
-              <p className="mt-1 text-xs text-ink/70">
+              <p className="mt-1 text-xs text-text/70">
                 原因：{booking.proposalReason}
               </p>
             )}
@@ -139,7 +139,7 @@ export function StaffBookingDetailModal({
               onGenerateReport(booking);
               onClose();
             }}
-            className="rounded-xl bg-golden px-4 py-2.5 text-sm font-semibold text-ink hover:bg-primary-700"
+            className="rounded-xl bg-card px-4 py-2.5 text-sm font-semibold text-text hover:bg-card"
           >
             生成報告
           </button>
@@ -149,12 +149,12 @@ export function StaffBookingDetailModal({
         <button
           type="button"
           onClick={() => setShowMore((v) => !v)}
-          className="self-start text-xs font-medium text-ink/60 underline"
+          className="self-start text-xs font-medium text-text/60 underline"
         >
           {showMore ? "隱藏其他資料" : "其他資料"}
         </button>
         {showMore && (
-          <dl className="rounded-xl bg-cream-50 px-4 py-2 text-xs text-ink/70">
+          <dl className="rounded-xl bg-surface px-4 py-2 text-xs text-text/70">
             <Row label="預約 ID" value={booking.id} />
             <Row label="客戶 ID" value={booking.customer?.id ?? "—"} />
             <Row label="保姆 ID" value={booking.staffId ?? "未指派"} />
@@ -187,7 +187,7 @@ function Section({
 }) {
   return (
     <section>
-      <h3 className="mb-1 text-sm font-semibold text-ink">{title}</h3>
+      <h3 className="mb-1 text-sm font-semibold text-text">{title}</h3>
       <dl className="divide-y divide-black/5 rounded-xl bg-white px-4 py-1 ring-1 ring-black/5">
         {children}
       </dl>
@@ -198,8 +198,8 @@ function Section({
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="grid grid-cols-3 gap-2 py-2 text-sm">
-      <dt className="font-medium text-ink/70">{label}</dt>
-      <dd className="col-span-2 break-words text-ink">{value}</dd>
+      <dt className="font-medium text-text/70">{label}</dt>
+      <dd className="col-span-2 break-words text-text">{value}</dd>
     </div>
   );
 }

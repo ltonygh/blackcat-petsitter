@@ -14,7 +14,7 @@ const SECTIONS = [
       "黑貓上門寵物保母 Blackcat Petsitter 只會為提供寵物保姆服務（包括預約安排、保姆配對、溝通聯絡及付款處理）而收集個人資料。",
 
       " •  用戶的個人資料及聯絡方式，包括姓名、電話號碼及電郵，確保黑貓上門寵物保母 Blackcat Petsitter能夠實時聯絡用戶。",
-      " •  用戶的地址資料，包括詳細地址及進入方式，確保 黑貓上門寵物保母 Blackcat Petsitter 能夠準時為用戶提供寵物上門照顧服務。",
+      " •  用戶的地址資料，包括地區及屋苑／大廈名稱，確保 黑貓上門寵物保母 Blackcat Petsitter 能夠準時為用戶提供寵物上門照顧服務。",
       " •  用戶的寵物資料，包括寵物名字、品種、外貌特徵及性格、以及寵物健康狀況，確保黑貓上門寵物保母 Blackcat Petsitter能夠根據用戶的寵物狀況提供合適的照顧及護理方式。",
       " •  付款記錄，以處理用戶的預約及發出收據。",
     ],
@@ -42,7 +42,7 @@ const SECTIONS = [
     body: [
       "我們採取切實可行的保安措施，保護您的資料免遭未經授權的查閱：",
       " •  寵物文件及照片儲存於受嚴格存取控制的雲端空間 (Cloudflare R2)。",
-      " •  用戶的預約及個人資料受到嚴格的系統權限保護。只有用戶本人、系統管理員，以及被指派為用戶服務的保姆才能查閱該次預約的詳細地址及進入方式。其他保姆或未經授權人士無法查閱用戶的資料。",
+      " •  用戶的預約及個人資料受到嚴格的系統權限保護。只有用戶本人、系統管理員，以及被指派為用戶服務的保姆才能查閱該次預約的服務地址。其他保姆或未經授權人士無法查閱用戶的資料。",
     ],
   },
   {
@@ -63,29 +63,29 @@ const SECTIONS = [
 export default function PrivacyPage() {
   return (
     <main className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 sm:py-14">
-      <span className="inline-flex w-fit items-center rounded-full bg-golden px-3 py-1 text-xs font-semibold text-ink">
+      <span className="inline-flex w-fit items-center rounded-full bg-card px-3 py-1 text-xs font-semibold text-text">
         個人資料（私隱）條例 PDPO
       </span>
 
-      <h1 className="mt-4 text-3xl font-bold leading-tight text-ink sm:text-4xl">
+      <h1 className="mt-4 text-3xl font-bold leading-tight text-text sm:text-4xl">
         私隱政策 (Privacy Policy)
       </h1>
 
-      <p className="mt-3 text-sm leading-relaxed text-ink/75">
+      <p className="mt-3 text-sm leading-relaxed text-text/75">
         Blackcat.petsitter 致力於保護您的個人資料私隱。本政策說明我們如何根據香港《個人資料（私隱）條例》（第486章）收集、使用、保留及保護您的資料。
       </p>
 
       <div className="mt-8 flex flex-col gap-6">
         {SECTIONS.map((section) => (
           <section key={section.title}>
-            <h2 className="text-base font-semibold text-ink sm:text-lg">
+            <h2 className="text-base font-semibold text-text sm:text-lg">
               {section.title}
             </h2>
             <div className="mt-2 flex flex-col gap-2">
               {section.body.map((paragraph) => (
                 <p
                   key={paragraph.slice(0, 24)}
-                  className="text-sm leading-relaxed text-ink/75"
+                  className="text-sm leading-relaxed text-text/75"
                 >
                   {paragraph}
                 </p>
@@ -95,8 +95,8 @@ export default function PrivacyPage() {
         ))}
       </div>
 
-      <aside className="mt-10 rounded-2xl bg-cream p-5 text-sm text-ink/80 ring-1 ring-black/5">
-        <p className="font-semibold text-ink">需要協助？</p>
+      <aside className="mt-10 rounded-2xl bg-bg p-5 text-sm text-text/80 ring-1 ring-black/5">
+        <p className="font-semibold text-text">需要協助？</p>
         <p className="mt-1">
           如對私隱政策有任何疑問，或希望查閱／更正你的個人資料，請透過{" "}
           <Link href="/social" className="font-semibold text-primary underline">
@@ -104,18 +104,18 @@ export default function PrivacyPage() {
           </Link>{" "}
           或電郵與我們聯絡。
         </p>
-        <p className="mt-2 text-xs text-ink/60">
+        <p className="mt-2 text-xs text-text/60">
           有關香港《個人資料（私隱）條例》的詳情，請參閱個人資料私隱專員公署網站。
         </p>
       </aside>
 
-      <p className="mt-8 text-xs text-ink/50">
+      <p className="mt-8 text-xs text-text/50">
         最後更新日期：2026年10月31日
       </p>
 
       <Link
         href="/book"
-        className="mt-6 inline-block rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-600"
+        className="mt-6 inline-block rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-hover"
       >
         返回預約
       </Link>

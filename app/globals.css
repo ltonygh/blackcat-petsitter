@@ -2,33 +2,32 @@
 
 /*
  * Blackcat.petsitter design tokens (Tailwind v4 @theme).
- * These expose named utilities (e.g. bg-cream, text-ink) that map onto the
- * brand palette. Arbitrary hex classes like bg-[#FFA259] still work too.
+  * Names describe the ROLE, not the hue, so a palette change is a one-line
+ * edit here: the client can swap cream for dark green and every surface
+ * follows. Never reference a raw hex in a component — add a token instead.
  */
 @theme {
-  --color-cream: #ffedb9; /* Warm Cream — page background */
-  --color-cream-50: #fff8e1; /* Lightest cream — input / list surfaces */
-  --color-cream-100: #fff3d1; /* Hover tint on cream surfaces */
-  --color-golden: #ffcb56; /* Golden Yellow — cards / sections */
-  --color-primary: #ffa259; /* Soft Orange — primary CTA */
-  --color-primary-600: #ff8f3d; /* Primary hover */
-  --color-primary-700: #ffbe3a; /* Golden hover */
-  --color-ink: #4a3b32; /* Dark Brown / Charcoal — text */
-
-  /* Client brand gradient (applied to the Home hero). */
-  --background-image-brand-gradient: linear-gradient(
-    135deg,
-    #efd0ca 0%,
-    #c1bcac 25%,
-    #979b8d 50%,
-    #5c7457 75%,
-    #214e34 100%
+  /* Semantic backgrounds */
+  --color-bg: #ffedb9;            /* Page background */
+  --color-surface: #fff8e1;       /* Inputs / cards */
+  --color-surface-hover: #fff3d1; /* Hover tint on surfaces */
+  --color-card: #ffcb56;          /* Highlighted cards */
+  
+  /* Semantic actions */
+  --color-primary: #ffa259;
+  --color-primary-hover: #ff8f3d;
+  /* Semantic text */
+  --color-text: #4a3b32;          /* Primary text */
+  --color-text-muted: rgba(74, 59, 50, 0.7);
+  /* Brand gradient — `bg-brand` */
+  --background-image-brand: linear-gradient(
+    #6a5b52
   );
 }
 
 :root {
-  --background: #ffedb9;
-  --foreground: #4a3b32;
+  --background: var(--color-bg);
+  --foreground: var(--color-text);
 }
 
 html {

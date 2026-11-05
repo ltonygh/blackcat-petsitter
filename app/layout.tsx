@@ -57,7 +57,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="zh-HK">
-      <body className="flex min-h-screen flex-col bg-cream text-ink">
+      <body className="flex min-h-screen flex-col bg-bg text-text">
         {/* 3. Wrap ONLY the dynamic header in Suspense */}
         <Suspense fallback={<div className="h-16 border-b border-black/5" />}>
           <DynamicHeader />
@@ -65,7 +65,7 @@ export default function RootLayout({
         
         <div className="flex-1">{children}</div>
         
-        <footer className="border-t border-black/5 px-4 py-6 text-center text-sm text-ink/70">
+        <footer className="border-t border-black/5 px-4 py-6 text-center text-sm text-text/70">
           © {COPYRIGHT_YEAR} Blackcat.petsitter · 香港寵物保姆平台
         </footer>
       </body>

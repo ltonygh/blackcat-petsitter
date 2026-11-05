@@ -122,9 +122,9 @@ export function ReportWizard({ bookings, onClose }: ReportWizardProps) {
 
       {step === 1 && (
         <div className="flex flex-col gap-3">
-          <p className="text-sm text-ink/70">選擇要包含在報告中的預約：</p>
+          <p className="text-sm text-text/70">選擇要包含在報告中的預約：</p>
           {candidates.length === 0 && (
-            <p className="rounded-xl bg-cream-50 px-4 py-3 text-sm text-ink/70">
+            <p className="rounded-xl bg-surface px-4 py-3 text-sm text-text/70">
               暫無可報告嘅預約（已完成／已付款）。
             </p>
           )}
@@ -138,7 +138,7 @@ export function ReportWizard({ bookings, onClose }: ReportWizardProps) {
                     onChange={() => toggle(b.id)}
                     className="h-5 w-5 accent-primary"
                   />
-                  <span className="text-sm text-ink">
+                  <span className="text-sm text-text">
                     {b.pet?.name ?? "—"} · {b.serviceType} ·{" "}
                     {formatDate(b.startTime)}
                   </span>
@@ -147,7 +147,7 @@ export function ReportWizard({ bookings, onClose }: ReportWizardProps) {
             ))}
           </ul>
           {selected.size > 1 && (
-            <p className="text-xs text-ink/60">
+            <p className="text-xs text-text/60">
               報告會以第一份已選預約為準（{primary?.pet?.name ?? "—"}）。
             </p>
           )}
@@ -158,13 +158,13 @@ export function ReportWizard({ bookings, onClose }: ReportWizardProps) {
         <div className="flex max-h-[60vh] flex-col gap-6 overflow-y-auto pr-1">
           {/* A. Completed tasks */}
           <section>
-            <h3 className="mb-2 text-sm font-semibold text-ink">
+            <h3 className="mb-2 text-sm font-semibold text-text">
               A. 是日完成事項
             </h3>
             <div className="flex flex-col gap-4">
               {COMPLETED_TASKS.map((group) => (
                 <fieldset key={group.category}>
-                  <legend className="mb-1.5 text-xs font-semibold text-ink/60">
+                  <legend className="mb-1.5 text-xs font-semibold text-text/60">
                     {group.category}
                   </legend>
                   <ul className="grid gap-1.5 sm:grid-cols-2">
@@ -172,7 +172,7 @@ export function ReportWizard({ bookings, onClose }: ReportWizardProps) {
                       const id = `${group.category}::${task}`;
                       return (
                         <li key={id}>
-                          <label className="flex cursor-pointer items-start gap-2 rounded-lg bg-cream-50 px-3 py-2 text-sm text-ink hover:bg-cream-100">
+                          <label className="flex cursor-pointer items-start gap-2 rounded-lg bg-surface px-3 py-2 text-sm text-text hover:bg-surface-hover">
                             <input
                               type="checkbox"
                               checked={completedIds.has(id)}
@@ -192,10 +192,10 @@ export function ReportWizard({ bookings, onClose }: ReportWizardProps) {
 
           {/* B. Observations */}
           <section>
-            <label htmlFor="report-observations" className="mb-1 block text-sm font-semibold text-ink">
+            <label htmlFor="report-observations" className="mb-1 block text-sm font-semibold text-text">
               B. 觀察記錄
             </label>
-            <p className="mb-1.5 text-xs text-ink/60">
+            <p className="mb-1.5 text-xs text-text/60">
               每一行將自動轉換為項目符號
             </p>
             <textarea
@@ -210,13 +210,13 @@ export function ReportWizard({ bookings, onClose }: ReportWizardProps) {
 
           {/* C. Follow-ups */}
           <section>
-            <h3 className="mb-2 text-sm font-semibold text-ink">
+            <h3 className="mb-2 text-sm font-semibold text-text">
               C. 後續注意事項
             </h3>
             <ul className="grid gap-1.5 sm:grid-cols-2">
               {UPCOMING_TASKS.map((task) => (
                 <li key={task}>
-                  <label className="flex cursor-pointer items-start gap-2 rounded-lg bg-cream-50 px-3 py-2 text-sm text-ink hover:bg-cream-100">
+                  <label className="flex cursor-pointer items-start gap-2 rounded-lg bg-surface px-3 py-2 text-sm text-text hover:bg-surface-hover">
                     <input
                       type="checkbox"
                       checked={upcomingIds.has(task)}
@@ -228,7 +228,7 @@ export function ReportWizard({ bookings, onClose }: ReportWizardProps) {
                 </li>
               ))}
             </ul>
-            <label htmlFor="report-custom-upcoming" className="mb-1 mt-3 block text-xs font-medium text-ink/70">
+            <label htmlFor="report-custom-upcoming" className="mb-1 mt-3 block text-xs font-medium text-text/70">
               其他後續事項（選填，每行一項）
             </label>
             <textarea
@@ -243,10 +243,10 @@ export function ReportWizard({ bookings, onClose }: ReportWizardProps) {
 
           {/* D. Other notes */}
           <section>
-            <label htmlFor="report-other" className="mb-1 block text-sm font-semibold text-ink">
+            <label htmlFor="report-other" className="mb-1 block text-sm font-semibold text-text">
               D. 其他注意事項
             </label>
-            <p className="mb-1.5 text-xs text-ink/60">
+            <p className="mb-1.5 text-xs text-text/60">
               每一行將自動轉換為項目符號
             </p>
             <textarea
@@ -262,7 +262,7 @@ export function ReportWizard({ bookings, onClose }: ReportWizardProps) {
       )}
 
       {step === 3 && (
-        <pre className="max-h-[60vh] overflow-y-auto whitespace-pre-wrap rounded-xl bg-cream-50 p-4 text-sm leading-relaxed text-ink">
+        <pre className="max-h-[60vh] overflow-y-auto whitespace-pre-wrap rounded-xl bg-surface p-4 text-sm leading-relaxed text-text">
           {reportText}
         </pre>
       )}
@@ -275,11 +275,11 @@ export function ReportWizard({ bookings, onClose }: ReportWizardProps) {
           <button
             type="button"
             onClick={() => void copy()}
-            className="w-full rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-white hover:bg-primary-600"
+            className="w-full rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-white hover:bg-primary-hover"
           >
             {copied ? "已複製！" : "複製報告到剪貼簿"}
           </button>
-          <p className="text-xs text-ink/60">
+          <p className="text-xs text-text/60">
             複製後可貼上到 WhatsApp 發送給客戶。
           </p>
         </div>
@@ -290,7 +290,7 @@ export function ReportWizard({ bookings, onClose }: ReportWizardProps) {
           <button
             type="button"
             onClick={back}
-            className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-ink ring-1 ring-black/10 hover:bg-black/5"
+            className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-text ring-1 ring-black/10 hover:bg-black/5"
           >
             上一步
           </button>
@@ -302,7 +302,7 @@ export function ReportWizard({ bookings, onClose }: ReportWizardProps) {
             type="button"
             onClick={next}
             disabled={!canNext}
-            className="rounded-xl bg-primary px-5 py-2 text-sm font-semibold text-white hover:bg-primary-600 disabled:opacity-40"
+            className="rounded-xl bg-primary px-5 py-2 text-sm font-semibold text-white hover:bg-primary-hover disabled:opacity-40"
           >
             下一步
           </button>
@@ -310,7 +310,7 @@ export function ReportWizard({ bookings, onClose }: ReportWizardProps) {
           <button
             type="button"
             onClick={onClose}
-            className="rounded-xl bg-white px-5 py-2 text-sm font-semibold text-ink ring-1 ring-black/10 hover:bg-black/5"
+            className="rounded-xl bg-white px-5 py-2 text-sm font-semibold text-text ring-1 ring-black/10 hover:bg-black/5"
           >
             完成
           </button>
@@ -328,4 +328,4 @@ function displayTask(task: string, booking: BookingWithDetails | null): string {
 }
 
 const textarea =
-  "w-full rounded-xl border border-black/10 bg-cream-50 px-3 py-2 text-sm text-ink outline-none placeholder:text-ink/40 focus:border-primary focus:ring-2 focus:ring-primary/30";
+  "w-full rounded-xl border border-black/10 bg-surface px-3 py-2 text-sm text-text outline-none placeholder:text-text/40 focus:border-primary focus:ring-2 focus:ring-primary/30";
