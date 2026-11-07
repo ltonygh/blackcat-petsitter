@@ -92,6 +92,13 @@
       "when": 1730000110000,
       "tag": "0012_booking_days",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1730000120000,
+      "tag": "0013_booking_days_addons",
+      "breakpoints": true
     }
   ]
 }

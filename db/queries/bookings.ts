@@ -373,6 +373,8 @@ export type InlineBookingDay = {
   date: string;
   startTime?: Date | string | null;
   endTime?: Date | string | null;
+  /** Optional per-day add-on services (price line items). */
+  addOns?: BookingLineItem[];
 };
 
 export type CreateInlineBookingInput = {
@@ -536,6 +538,7 @@ export async function createBookingInline(
               : d.endTime instanceof Date
                 ? d.endTime
                 : new Date(d.endTime),
+          addOns: d.addOns ?? [],
         })),
       );
     }

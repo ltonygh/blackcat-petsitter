@@ -88,18 +88,28 @@ export interface BookingLineItem {
 export type AddOnId =
   | "nailCutting"
   | "earCleaning"
-  | "pillFeeding"
+  | "pillFeeding1_5"
+  | "pillFeeding6_10"
+  | "pillFeeding11plus"
   | "injection"
   | "subcutaneousFluid";
 
-/** Pill-count tiers: the price depends on how many pills are given. */
+/**
+ * Pill-count tiers. Each tier is offered as its own add-on checkbox
+ * (`pillFeeding1_5` / `pillFeeding6_10` / `pillFeeding11plus`), so there is
+ * no separate tier dropdown. Retained as the single source for tier pricing
+ * and the labels used on the homepage pricing board.
+ */
 export const PILL_TIERS = [
-  { id: "1-5", label: "1–5 粒", price: 30 },
-  { id: "6-10", label: "6–10 粒", price: 50 },
-  { id: "11+", label: "11+ 粒", price: 100 },
-] as const;
-
-export type PillTierId = (typeof PILL_TIERS)[number]["id"];
+  { id: "1-5", label: "1–5 粒", price: 30, addOnId: "pillFeeding1_5" },
+  { id: "6-10", label: "6–10 粒", price: 50, addOnId: "pillFeeding6_10" },
+  { id: "11+", label: "11+ 粒", price: 100, addOnId: "pillFeeding11plus" },
+] as const satisfies readonly {
+  id: string;
+  label: string;
+  price: number;
+  addOnId: AddOnId;
+}[];
 
 export interface AddOnDef {
   id: AddOnId;
@@ -111,8 +121,11 @@ export interface AddOnDef {
 export const ADD_ON_DEFS: AddOnDef[] = [
   { id: "nailCutting", label: "剪指甲 Nail-cutting", price: 30 },
   { id: "earCleaning", label: "清潔耳朵 Ear-cleaning", price: 30 },
-  // `price: null` → user must pick a PILL_TIERS option.
-  { id: "pillFeeding", label: "餵藥 Pill-feeding", price: null },
+  // Pill-feeding is offered as three flat-priced tiers (no separate dropdown),
+  // so the UI stays a plain checkbox list and the price is captured exactly.
+  { id: "pillFeeding1_5", label: "餵藥 (1–5 粒) Pill-feeding", price: 30 },
+  { id: "pillFeeding6_10", label: "餵藥 (6–10 粒) Pill-feeding", price: 50 },
+  { id: "pillFeeding11plus", label: "餵藥 (11+ 粒) Pill-feeding", price: 100 },
   { id: "injection", label: "注射 Injection", price: 50 },
   {
     id: "subcutaneousFluid",
@@ -123,26 +136,17 @@ export const ADD_ON_DEFS: AddOnDef[] = [
 
 export type SelectedAddOns = Partial<Record<AddOnId, boolean>>;
 
-/** Price of a single add-on given the current pill tier. */
-export function addOnPrice(
-  id: AddOnId,
-  pillTier: PillTierId,
-): number | null {
-  if (id === "pillFeeding") {
-    return PILL_TIERS.find((t) => t.id === pillTier)?.price ?? null;
-  }
+/** Flat price of a single add-on (pill-feeding tiers are their own ids). */
+export function addOnPrice(id: AddOnId): number | null {
   return ADD_ON_DEFS.find((d) => d.id === id)?.price ?? null;
 }
 
 /** Build the priced line items for the selected add-ons. */
-export function buildAddOns(
-  selected: SelectedAddOns,
-  pillTier: PillTierId,
-): BookingLineItem[] {
+export function buildAddOns(selected: SelectedAddOns): BookingLineItem[] {
   const items: BookingLineItem[] = [];
   for (const def of ADD_ON_DEFS) {
     if (!selected[def.id]) continue;
-    const price = addOnPrice(def.id, pillTier);
+    const price = addOnPrice(def.id);
     if (price === null) continue;
     items.push({
       id: def.id,
@@ -255,8 +259,13 @@ export interface PriceInput {
   petWeight?: string | number | null;
   /** Total number of cats in the household (1–5). Clamped internally. */
   catCount?: number | null;
-  /** Selected add-ons (already priced). */
+  /** Legacy flat add-ons (priced). Ignored when `perDayAddOns` is given. */
   addOns?: BookingLineItem[];
+  /**
+   * Per-day add-ons for multi-day bookings. Each entry is that day's own
+   * selection; arrays may differ in length and content.
+   */
+  perDayAddOns?: BookingLineItem[][];
   /** Auto-derived T&C surcharges. */
   surcharges?: BookingLineItem[];
   /**
@@ -282,8 +291,10 @@ export interface PriceBreakdown {
   dayCount: number;
   /** Per-day base fee including any extra-cat charge. */
   dailyBase: number;
-  /** Per-day add-on subtotal. */
+  /** Per-day add-on subtotal (single-visit bookings only). */
   dailyAddOns: number;
+  /** Total of all add-ons across every day. */
+  totalAddOns: number;
 }
 
 function toWeight(value: string | number | null | undefined): number {
@@ -307,87 +318,84 @@ function clampCatCount(value: number | null | undefined): number {
 export function calcPrice(input: PriceInput): PriceBreakdown {
   const notes: string[] = [];
   const dayCount = Math.max(1, Math.floor(Number(input.dayCount ?? 1)) || 1);
-  const addOns = input.addOns ?? [];
   const surcharges = input.surcharges ?? [];
-  const dailyAddOns = addOns.reduce((sum, i) => sum + i.price, 0);
-  // Add-ons are performed on every visit.
-  const addOnsTotal = dailyAddOns * dayCount;
   const surchargesTotal = surcharges.reduce((sum, i) => sum + i.price, 0);
-  const dayLabel = dayCount > 1 ? ` × ${dayCount} 天` : "";
 
+  /**
+   * Add-ons per day. `perDayAddOns` wins when present (multi-day, each day
+   * has its own selection); otherwise fall back to the flat `addOns` array
+   * repeated for every day, which keeps single-visit callers unchanged.
+   */
+  const perDayAddOns: BookingLineItem[][] = input.perDayAddOns
+    ? input.perDayAddOns
+    : Array.from({ length: dayCount }, () => input.addOns ?? []);
+
+  const dayAddOnTotals = perDayAddOns.map((items) =>
+    items.reduce((sum, i) => sum + i.price, 0),
+  );
+  const totalAddOns = dayAddOnTotals.reduce((sum, n) => sum + n, 0);
+
+  const multi = dayCount > 1;
+
+  // ── Base fee for ONE day ──
+  let dailyBase: number;
   if (input.serviceType === "Dog Sitting") {
     const weight = toWeight(input.petWeight);
     const heavyDog = weight >= DOG_HEAVY_WEIGHT_KG;
-    const base = heavyDog ? PRICES.dogHeavy : PRICES.dogStandard;
-    if (heavyDog) {
-      notes.push(
-        `基本 $${PRICES.dogHeavy}（狗狗體重 ${weight}kg ≥ ${DOG_HEAVY_WEIGHT_KG}kg）${dayLabel}`,
-      );
-    } else {
-      notes.push(
-        `基本 $${PRICES.dogStandard}（狗狗體重 < ${DOG_HEAVY_WEIGHT_KG}kg）${dayLabel}`,
-      );
-    }
-    for (const item of addOns) {
-      notes.push(
-        dayCount > 1
-          ? `${item.name} +$${item.price} × ${dayCount} 天`
-          : `${item.name} +$${item.price}`,
-      );
-    }
-    for (const item of surcharges) notes.push(`${item.name} +$${item.price}`);
-    return {
-      total: base * dayCount + addOnsTotal + surchargesTotal,
-      notes,
-      extraCats: 0,
-      heavyDog,
-      base: base * dayCount,
-      addOnsTotal,
-      surchargesTotal,
-      dayCount,
-      dailyBase: base,
-      dailyAddOns,
-    };
-  }
-
-  const base =
-    input.serviceType === "Cat Sitting (Express)"
-      ? PRICES.catExpress
-      : PRICES.catStandard;
-  const catCount = clampCatCount(input.catCount);
-  const extraCats = Math.max(0, catCount - CATS_INCLUDED_IN_BASE);
-  const extraFee = extraCats * EXTRA_CAT_FEE;
-  const dailyBase = base + extraFee;
-
-  notes.push(`基本 $${base}（最多 ${CATS_INCLUDED_IN_BASE} 隻貓）${dayLabel}`);
-  if (extraCats > 0) {
+    dailyBase = heavyDog ? PRICES.dogHeavy : PRICES.dogStandard;
     notes.push(
-      dayCount > 1
-        ? `額外 ${extraCats} 隻貓 × $${EXTRA_CAT_FEE} = $${extraFee} × ${dayCount} 天`
-        : `額外 ${extraCats} 隻貓 × $${EXTRA_CAT_FEE} = $${extraFee}`,
+      heavyDog
+        ? `基本 $${PRICES.dogHeavy}（狗狗體重 ${weight}kg ≥ ${DOG_HEAVY_WEIGHT_KG}kg）`
+        : `基本 $${PRICES.dogStandard}（狗狗體重 < ${DOG_HEAVY_WEIGHT_KG}kg）`,
     );
+  } else {
+    const base =
+      input.serviceType === "Cat Sitting (Express)"
+        ? PRICES.catExpress
+        : PRICES.catStandard;
+    const catCount = clampCatCount(input.catCount);
+    const extraCats = Math.max(0, catCount - CATS_INCLUDED_IN_BASE);
+    const extraFee = extraCats * EXTRA_CAT_FEE;
+    dailyBase = base + extraFee;
+    notes.push(`基本 $${base}（最多 ${CATS_INCLUDED_IN_BASE} 隻貓）`);
+    if (extraCats > 0) {
+      notes.push(`額外 ${extraCats} 隻貓 × $${EXTRA_CAT_FEE} = $${extraFee}`);
+    }
   }
-  for (const item of addOns) {
-    notes.push(
-      dayCount > 1
-        ? `${item.name} +$${item.price} × ${dayCount} 天`
-        : `${item.name} +$${item.price}`,
-    );
-  }
+  if (multi) notes.push(`基本服務費 × ${dayCount} 天`);
+
+  // ── Add-ons, listed per day so the breakdown matches what is billed ──
+  perDayAddOns.forEach((items, dayIdx) => {
+    if (items.length === 0) return;
+    notes.push(`第 ${dayIdx + 1} 天附加服務`);
+    for (const item of items) notes.push(`${item.name} +$${item.price}`);
+  });
+
   for (const item of surcharges) notes.push(`${item.name} +$${item.price}`);
 
+  const base = dailyBase * dayCount;
+  const total = base + totalAddOns + surchargesTotal;
+
   return {
-    // Extra cats are part of the base fee, not a line item.
-    total: dailyBase * dayCount + addOnsTotal + surchargesTotal,
+    total,
     notes,
-    extraCats,
-    heavyDog: false,
-    base: dailyBase * dayCount,
-    addOnsTotal,
+    extraCats:
+      input.serviceType === "Dog Sitting"
+        ? 0
+        : Math.max(
+            0,
+            clampCatCount(input.catCount) - CATS_INCLUDED_IN_BASE,
+          ),
+    heavyDog:
+      input.serviceType === "Dog Sitting" &&
+      toWeight(input.petWeight) >= DOG_HEAVY_WEIGHT_KG,
+    base,
+    addOnsTotal: totalAddOns,
     surchargesTotal,
     dayCount,
     dailyBase,
-    dailyAddOns,
+    dailyAddOns: perDayAddOns[0]?.reduce((s, i) => s + i.price, 0) ?? 0,
+    totalAddOns,
   };
 }
 

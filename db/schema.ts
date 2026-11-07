@@ -192,6 +192,8 @@ export const bookingDays = pgTable("booking_days", {
   date: date("date").notNull(),
   startTime: timestamp("start_time", { withTimezone: true }),
   endTime: timestamp("end_time", { withTimezone: true }),
+  // Per-day add-on services (price line items): [{ id, name, price }].
+  addOns: jsonb("add_ons").$type<BookingLineItem[]>().default([]).notNull(),
 });
 
 // Pets owned by a user.

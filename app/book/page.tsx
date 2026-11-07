@@ -5,20 +5,20 @@ import { useEffect, useState } from "react";
 
 import { Stepper, type StepperStep } from "@/components/Stepper";
 import { Modal } from "@/components/Modal";
+import {
+  MultiSelectPopover,
+  type MultiSelectOption,
+} from "@/components/ui/MultiSelectPopover";
 import { apiGet, apiPost, ApiError } from "@/components/lib/api";
 import { toIso } from "@/components/lib/format";
 import type { AddressRecord, Pet } from "@/types";
 import {
-  ADD_ON_DEFS,
   addMinutes,
-  addOnPrice,
   buildAddOns,
   buildSurchargesForDays,
   calcPrice,
   MAX_CATS,
-  PILL_TIERS,
   type BookingLineItem,
-  type PillTierId,
   type SelectedAddOns,
   SERVICE_META,
   SERVICE_TYPES,
@@ -41,24 +41,39 @@ const TIME_PRESETS = [
 
 type SlotId = (typeof TIME_PRESETS)[number]["id"];
 
+/** Add-on choices offered in the per-day popover. */
+const ADD_ON_OPTIONS: MultiSelectOption[] = [
+  { id: "nailCutting", label: "剪指甲 Nail-cutting", priceLabel: "+$30" },
+  { id: "earCleaning", label: "清潔耳朵 Ear-cleaning", priceLabel: "+$30" },
+  { id: "pillFeeding1_5", label: "餵藥 (1–5 粒)", priceLabel: "+$30" },
+  { id: "pillFeeding6_10", label: "餵藥 (6–10 粒)", priceLabel: "+$50" },
+  { id: "pillFeeding11plus", label: "餵藥 (11+ 粒)", priceLabel: "+$100" },
+  { id: "injection", label: "注射 Injection", priceLabel: "+$50" },
+  { id: "subcutaneousFluid", label: "皮下輸液 Subcutaneous", priceLabel: "+$100" },
+];
+
 interface ExtraDay {
   /** Stable key for React lists. */
   key: string;
   date: string;
   /** "" means no specific time (whole day). */
   slot: SlotId | "";
+  /** That day's own add-on selection. */
+  addOns: SelectedAddOns;
 }
 
 interface WizardState {
   serviceType: ServiceType;
   date: string;
-  startTime: string; // HH:mm
+  /** Time slot for day 1 — single source of truth for the start time.
+   *  "" = 全日 / 待定 (no fixed time; anchored to 09:00 for duration). */
+  slot: SlotId | "";
   /**
    * Extra days for a multi-day booking. The primary `date` above is always
    * day 1; these are additional visits. Each carries its own optional slot.
    */
   extraDays: ExtraDay[];
-  // NOTE: no endTime — it is derived from startTime + service duration.
+  // NOTE: no endTime — derived from the slot + service duration.
   address: string;
   /** Region (地區), e.g. "九龍". Combined with `estate` into fullAddress. */
   region: string;
@@ -79,16 +94,14 @@ interface WizardState {
   appearance: string;
   petNotes: string;
   agreed: boolean;
-  /** Add-on selections; surcharges are derived, never stored here. */
+  /** Day 1's add-ons. Each extra day carries its own. */
   addOns: SelectedAddOns;
-  /** Pill count tier for the pill-feeding add-on. */
-  pillTier: PillTierId;
 }
 
 const INITIAL_STATE: WizardState = {
   serviceType: "Cat Sitting (Standard)",
   date: "",
-  startTime: "09:00",
+  slot: "",
   extraDays: [],
   address: "",
   region: "",
@@ -108,7 +121,6 @@ const INITIAL_STATE: WizardState = {
   petNotes: "",
   agreed: false,
   addOns: {},
-  pillTier: "1-5",
 };
 
 const isCatService = (s: ServiceType) => SERVICE_META[s].petType === "cat";
@@ -244,24 +256,32 @@ export default function BookPage() {
    * the service's slot length (auto-computed). Recomputed on every render so
    * it stays correct when either the start time or service changes.
    */
+  // Day 1 start time comes from the slot preset; empty slot = 09:00 anchor.
+  const primaryStart =
+    TIME_PRESETS.find((p) => p.id === state.slot)?.start ?? "09:00";
   const endTime = addMinutes(
-    state.startTime,
+    primaryStart,
     SERVICE_META[state.serviceType].durationMinutes,
   );
 
-  // Add-ons are user-selected; surcharges are always derived from date/time.
-  const addOns = buildAddOns(state.addOns, state.pillTier);
+  // Add-ons are selected per day; surcharges are derived from date/time.
+  const addOns = buildAddOns(state.addOns);
 
   // Multi-day: day 1 plus any extra dated rows. Days without a date are
   // ignored (the user may have added a row and not filled it in yet).
   const extraDaysFilled = state.extraDays.filter((d) => d.date.trim());
   const dayCount = 1 + extraDaysFilled.length;
   const billableDays = [
-    { date: state.date, startTime: state.startTime },
+    { date: state.date, startTime: state.slot ? primaryStart : null },
     ...extraDaysFilled.map((d) => ({
       date: d.date,
       startTime: TIME_PRESETS.find((p) => p.id === d.slot)?.start ?? null,
     })),
+  ];
+  // One priced add-on list per day, in the same order as billableDays.
+  const perDayAddOns = [
+    addOns,
+    ...extraDaysFilled.map((d) => buildAddOns(d.addOns)),
   ];
   const surcharges = buildSurchargesForDays(billableDays);
   const breakdown = calcPrice({
@@ -269,6 +289,7 @@ export default function BookPage() {
     petWeight: state.petWeight,
     catCount: state.catCount,
     addOns,
+    perDayAddOns,
     surcharges,
     dayCount,
   });
@@ -277,7 +298,7 @@ export default function BookPage() {
   const canProceed = (): boolean => {
     switch (step) {
       case 1:
-        return Boolean(state.date && state.startTime);
+        return Boolean(state.date);
       case 2:
         return Boolean(
           (state.region.trim() || state.estate.trim() || state.address.trim()) &&
@@ -319,7 +340,7 @@ export default function BookPage() {
     setSubmitError(null);
     setSubmitting(true);
     try {
-      const start = toIso(state.date, state.startTime);
+      const start = toIso(state.date, primaryStart);
       const end = toIso(state.date, endTime);
       if (!start || !end) throw new ApiError("請選擇有效的日期及時間。", 400);
       if (new Date(end) <= new Date(start))
@@ -345,47 +366,54 @@ export default function BookPage() {
         serviceType: state.serviceType,
         startTime: start,
         endTime: end,
-        // Multi-day: day 1 is the primary date, extras follow. Each carries
-        // an optional slot; "" means the day has no fixed time.
+        // Multi-day: day 1 is the primary date, extras follow. Each day owns
+        // its add-ons; a day without a slot has no fixed time.
         ...(state.extraDays.some((d) => d.date.trim())
           ? {
               days: [
-                { date: state.date, startTime: start, endTime: end },
-                ...state.extraDays
-                  .filter((d) => d.date.trim())
-                  .map((d) => {
-                    const preset = TIME_PRESETS.find((p) => p.id === d.slot);
-                    if (!preset) return { date: d.date };
-                    const s = toIso(d.date, preset.start);
-                    const e = s
-                      ? toIso(
-                          d.date,
-                          addMinutes(
-                            preset.start,
-                            SERVICE_META[state.serviceType].durationMinutes,
-                          ),
-                        )
-                      : null;
-                    return { date: d.date, startTime: s, endTime: e };
-                  }),
+                { date: state.date, startTime: start, endTime: end, addOns },
+                ...extraDaysFilled.map((d, i) => {
+                  const preset = TIME_PRESETS.find((p) => p.id === d.slot);
+                  const dayAddOns = perDayAddOns[i + 1] ?? [];
+                  if (!preset) return { date: d.date, addOns: dayAddOns };
+                  const s = toIso(d.date, preset.start);
+                  const e = s
+                    ? toIso(
+                        d.date,
+                        addMinutes(
+                          preset.start,
+                          SERVICE_META[state.serviceType].durationMinutes,
+                        ),
+                      )
+                    : null;
+                  return {
+                    date: d.date,
+                    startTime: s,
+                    endTime: e,
+                    addOns: dayAddOns,
+                  };
+                }),
               ],
             }
           : {}),
         totalHkd: total,
-        // Line items must sum to totalHkd, or the stored booking disagrees
-        // with itself. Add-ons are charged per visit, so their price is
-        // multiplied here (Nail-cutting ×3 days → price 90, name suffixed).
-        addOns: addOns.map((item) =>
-          dayCount > 1
-            ? {
-                ...item,
-                name: `${item.name}（${dayCount} 天）`,
-                price: item.price * dayCount,
-              }
-            : item,
+        /**
+         * Flat roll-up of every day's add-ons, so the top-level list still
+         * sums to totalHkd for backends that only read `addOns`. Identical
+         * entries from different days are merged into one priced line.
+         */
+        addOns: Object.values(
+          perDayAddOns
+            .flat()
+            .reduce<Record<string, BookingLineItem>>((acc, item) => {
+              const existing = acc[item.id];
+              acc[item.id] = existing
+                ? { ...existing, price: existing.price + item.price }
+                : { ...item };
+              return acc;
+            }, {}),
         ),
-        // Surcharges arrive already totalled across days, so their prices
-        // are already correct; pass through unchanged.
+        // Surcharges arrive already totalled across days; pass through.
         surcharges,
         addressData: {
           // Region + estate combine into one address string, e.g.
@@ -495,6 +523,7 @@ export default function BookPage() {
             dailyBase={breakdown.dailyBase}
             dayCount={breakdown.dayCount}
             addOns={addOns}
+            perDayAddOns={perDayAddOns}
             surcharges={surcharges}
             onAgree={(v) => update("agreed", v)}
           />
@@ -617,6 +646,7 @@ function StepOne({
             : String(Date.now() + Math.random()),
         date: "",
         slot: "",
+        addOns: {},
       },
     ]);
 
@@ -635,7 +665,7 @@ function StepOne({
   const catService = isCatService(state.serviceType);
   // Derived, never typed: start time + the service's slot length.
   const estimatedEnd = addMinutes(
-    state.startTime,
+    TIME_PRESETS.find((p) => p.id === state.slot)?.start ?? "09:00",
     SERVICE_META[state.serviceType].durationMinutes,
   );
 
@@ -756,155 +786,112 @@ function StepOne({
       {/* ── Date & time ── */}
       <h2 className="text-lg font-semibold text-text">選擇日期及時間</h2>
 
-      <div>
-        <label htmlFor="booking-date" className="mb-2 block text-sm font-medium text-text">
-          日期
-        </label>
-        <input
-          id="booking-date"
-          type="date"
-          min={today}
-          value={state.date}
-          onChange={(e) => onChange("date", e.target.value)}
-          className={inputClass}
-        />
+      <div className="flex flex-col gap-2">
+        {/* Day 1 — same compact row as the others, no remove button. */}
+        <div className="flex flex-wrap items-end gap-2 rounded-xl bg-surface p-3 ring-1 ring-black/5">
+          <div className="min-w-0 flex-1">
+            <label
+              htmlFor="booking-date"
+              className="mb-1 block text-xs font-medium text-text/70"
+            >
+              第 1 天
+            </label>
+            <input
+              id="booking-date"
+              type="date"
+              min={today}
+              value={state.date}
+              onChange={(e) => onChange("date", e.target.value)}
+              className={inputClass}
+            />
+          </div>
+          <div className="min-w-0 flex-1">
+            <label
+              htmlFor="booking-slot"
+              className="mb-1 block text-xs font-medium text-text/70"
+            >
+              時段
+            </label>
+            <select
+              id="booking-slot"
+              value={state.slot}
+              onChange={(e) => onChange("slot", e.target.value as SlotId | "")}
+              className={inputClass}
+            >
+              <option value="">全日 / 待定</option>
+              {TIME_PRESETS.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.label} {p.sub}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {state.extraDays.map((day, idx) => (
+          <div
+            key={day.key}
+            className="flex flex-wrap items-end gap-2 rounded-xl bg-surface p-3 ring-1 ring-black/5"
+          >
+            <div className="min-w-0 flex-1">
+              <label
+                htmlFor={`extra-day-${day.key}`}
+                className="mb-1 block text-xs font-medium text-text/70"
+              >
+                第 {idx + 2} 天
+              </label>
+              <input
+                id={`extra-day-${day.key}`}
+                type="date"
+                min={today}
+                value={day.date}
+                onChange={(e) => updateExtraDay(day.key, { date: e.target.value })}
+                className={inputClass}
+              />
+            </div>
+            <div className="min-w-0 flex-1">
+              <label
+                htmlFor={`extra-slot-${day.key}`}
+                className="mb-1 block text-xs font-medium text-text/70"
+              >
+                時段
+              </label>
+              <select
+                id={`extra-slot-${day.key}`}
+                value={day.slot}
+                onChange={(e) =>
+                  updateExtraDay(day.key, { slot: e.target.value as SlotId | "" })
+                }
+                className={inputClass}
+              >
+                <option value="">全日 / 待定</option>
+                {TIME_PRESETS.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.label} {p.sub}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <button
+              type="button"
+              onClick={() => removeExtraDay(day.key)}
+              aria-label={`移除第 ${idx + 2} 天`}
+              className="rounded-xl bg-white px-3 py-2.5 text-sm font-semibold text-red-600 ring-1 ring-red-200 hover:bg-red-50"
+            >
+              移除
+            </button>
+          </div>
+        ))}
       </div>
 
-        {/* Additional days (multi-day booking) */}
-        {state.extraDays.length > 0 && (
-        <div className="flex flex-col gap-2">
-          {state.extraDays.map((day, idx) => (
-            <div
-              key={day.key}
-              className="flex flex-wrap items-end gap-2 rounded-xl bg-surface p-3 ring-1 ring-black/5"
-            >
-              <div className="min-w-0 flex-1">
-                <label
-                  htmlFor={`extra-day-${day.key}`}
-                  className="mb-1 block text-xs font-medium text-text/70"
-                >
-                  第 {idx + 2} 天
-                </label>
-                <input
-                  id={`extra-day-${day.key}`}
-                  type="date"
-                  min={today}
-                  value={day.date}
-                  onChange={(e) => updateExtraDay(day.key, { date: e.target.value })}
-                  className={inputClass}
-                />
-              </div>
-              <div className="min-w-0 flex-1">
-                <label
-                  htmlFor={`extra-slot-${day.key}`}
-                  className="mb-1 block text-xs font-medium text-text/70"
-                >
-                  時段（選填）
-                </label>
-                <select
-                  id={`extra-slot-${day.key}`}
-                  value={day.slot}
-                  onChange={(e) =>
-                    updateExtraDay(day.key, { slot: e.target.value as SlotId | "" })
-                  }
-                  className={inputClass}
-                >
-                  <option value="">全日 / 待定</option>
-                  {TIME_PRESETS.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.label} {p.sub}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <button
-                type="button"
-                onClick={() => removeExtraDay(day.key)}
-                aria-label={`移除第 ${idx + 2} 天`}
-                className="rounded-xl bg-white px-3 py-2.5 text-sm font-semibold text-red-600 ring-1 ring-red-200 hover:bg-red-50"
-              >
-                移除
-              </button>
-            </div>
-          ))}
-        </div>
-        )}
-
-        <button
+      <button
         type="button"
         onClick={addExtraDay}
         className="w-fit rounded-xl bg-white px-4 py-2 text-sm font-semibold text-text ring-1 ring-black/10 hover:bg-black/5"
-        >
+      >
         + 新增另一天
-        </button>
+      </button>
 
-      {/* Quick-select time presets */}
-      <div>
-        <span className="mb-2 block text-sm font-medium text-text">
-          快速選擇時段
-        </span>
-        <div className="grid grid-cols-3 gap-2">
-          {TIME_PRESETS.map((preset) => {
-            const active = state.startTime === preset.start;
-            return (
-              <button
-                key={preset.id}
-                type="button"
-                aria-pressed={active}
-                onClick={() => onChange("startTime", preset.start)}
-                className={`flex flex-col items-center gap-0.5 rounded-xl px-2 py-2.5 text-sm font-semibold transition-colors ${
-                  active
-                    ? "bg-primary text-white"
-                    : "bg-bg text-text ring-1 ring-black/5 hover:bg-card"
-                }`}
-              >
-                <span>{preset.label}</span>
-                <span
-                  className={`text-[10px] font-normal ${
-                    active ? "text-white/80" : "text-text/60"
-                  }`}
-                >
-                  {preset.sub} · 由 {preset.start}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <label htmlFor="start-time" className="mb-2 block text-sm font-medium text-text">
-            或 輸入開始時間
-          </label>
-          <input
-            id="start-time"
-            type="time"
-            value={state.startTime}
-            onChange={(e) => onChange("startTime", e.target.value)}
-            className={inputClass}
-          />
-        </div>
-        <div>
-          <label htmlFor="end-time" className="mb-2 block text-sm font-medium text-text">
-            預計結束時間
-          </label>
-          {/* Derived from start time + service duration; not user-editable. */}
-          <input
-            id="end-time"
-            type="text"
-            value={estimatedEnd}
-            readOnly
-            disabled
-            aria-describedby="end-time-hint"
-            className={`${inputClass} cursor-not-allowed bg-black/5 text-text/70`}
-          />
-          <p id="end-time-hint" className="mt-1 text-xs text-text/60">
-            {SERVICE_META[state.serviceType].label} 約需{" "}
-            {SERVICE_META[state.serviceType].duration}，系統自動計算。
-          </p>
-        </div>
-      </div>
 
       {/* Surcharges are derived from date/time — never user-toggled. */}
       {surcharges.length > 0 && (
@@ -974,7 +961,7 @@ function StepTwo({
             </p>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-[7rem_1fr]">
+          <div className="grid gap-4 sm:grid-cols-[1fr_8rem]">
           
             <Field label="姓名" htmlFor="guest-name">
               <input
@@ -1142,6 +1129,26 @@ function StepThree({
 }) {
   const serviceMeta = SERVICE_META[state.serviceType];
   const petLabel = serviceMeta.petType === "dog" ? "狗狗" : "貓貓";
+
+  /** Every billable day, in order: day 1 first, then extra dated rows. */
+  const addOnDays = [
+    { key: "__day1", date: state.date, addOns: state.addOns },
+    ...state.extraDays
+      .filter((d) => d.date.trim())
+      .map(({ key, date, addOns }) => ({ key, date, addOns })),
+  ];
+
+  /** Write a day's selection back to the right place in state. */
+  const onDayAddOnsChange = (key: string, next: SelectedAddOns) => {
+    if (key === "__day1") {
+      onChange("addOns", next);
+      return;
+    }
+    onChange(
+      "extraDays",
+      state.extraDays.map((d) => (d.key === key ? { ...d, addOns: next } : d)),
+    );
+  };
   // A dog service shouldn't offer saved cats (and vice versa).
   const matchingPets = savedPets.filter(
     (p) => p.type === serviceMeta.petType || p.type === "other",
@@ -1331,77 +1338,53 @@ function StepThree({
         />
       </Field>
 
-      {/* ── Add-ons ── */}
+      {/* ── Add-ons, chosen per day ── */}
       <section className="rounded-xl bg-surface p-4 ring-1 ring-black/5">
         <h3 className="text-sm font-semibold text-text">
           附加服務 (每次上門計算 / Per Visit)
         </h3>
         <p className="mt-0.5 text-xs text-text/60">
-          附加服務將按預約日數乘以收費。
+          每項附加服務只適用於所選的那一天，費用即時計入總額。
         </p>
-        <p className="mt-0.5 text-xs text-text/50">
-          可選多項，費用即時計入總額。
-        </p>
-
         <div className="mt-3 flex flex-col gap-2">
-          {ADD_ON_DEFS.map((def) => {
-            const checked = Boolean(state.addOns[def.id]);
-            const price = addOnPrice(def.id, state.pillTier);
-            return (
-              <div
-                key={def.id}
-                className="rounded-lg bg-white px-3 py-2.5 ring-1 ring-black/5"
-              >
-                <label className="flex items-center gap-3 text-sm text-text">
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={(e) =>
-                      onChange("addOns", {
-                        ...state.addOns,
-                        [def.id]: e.target.checked,
-                      })
-                    }
-                    className="h-5 w-5 rounded border-black/20 accent-primary"
-                  />
-                  <span className="flex-1">{def.label}</span>
-                  <span className="text-sm font-semibold text-primary">
-                    {def.price === null
-                      ? `+$${price ?? PILL_TIERS[0].price}`
-                      : `+$${def.price}`}
-                  </span>
-                </label>
-
-                {/* Pill-feeding needs a quantity tier. */}
-                {def.id === "pillFeeding" && checked && (
-                  <div className="mt-2.5 flex items-center gap-2 border-t border-black/5 pt-2.5">
-                    <label
-                      htmlFor="pill-tier"
-                      className="text-xs text-text/70"
-                    >
-                      藥丸數量
-                    </label>
-                    <select
-                      id="pill-tier"
-                      value={state.pillTier}
-                      onChange={(e) =>
-                        onChange("pillTier", e.target.value as PillTierId)
-                      }
-                      className="rounded-lg border border-black/10 bg-surface px-2 py-1.5 text-xs text-text outline-none focus:border-primary focus:ring-2 focus:ring-primary/30"
-                    >
-                      {PILL_TIERS.map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {t.label}（+${t.price}）
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
+          {addOnDays.map((day, idx) => (
+            <div
+              key={day.key}
+              className="flex flex-wrap items-center gap-2 rounded-lg bg-white px-3 py-2.5 ring-1 ring-black/5"
+            >
+              <div className="min-w-0 flex-1">
+                <span className="block text-sm font-medium text-text">
+                  第 {idx + 1} 天
+                </span>
+                <span className="block text-xs text-text/50">
+                  {day.date || "未選擇日期"}
+                </span>
               </div>
-            );
-          })}
+              {/* w-full + min-w-0 are required for the popover's truncate /
+                  overflow-hidden to work inside this flex row. */}
+              <div className="w-full min-w-0">
+                <MultiSelectPopover
+                  ariaLabel={`第 ${idx + 1} 天附加服務`}
+                  options={ADD_ON_OPTIONS}
+                  selected={Object.entries(day.addOns)
+                    .filter(([, on]) => on)
+                    .map(([id]) => id)}
+                  onChange={(next) =>
+                    onDayAddOnsChange(
+                      day.key,
+                      Object.fromEntries(next.map((id) => [id, true])),
+                    )
+                  }
+                />
+              </div>
+            </div>
+          ))}
         </div>
+        <p className="mt-2 text-xs text-text/50">
+          餵藥按顆數收費：1–5 粒 +$30、6–10 粒 +$50、11+ 粒 +$100。
+        </p>
       </section>
+
 
       {/* Documents: no pet record exists until POST /api/bookings runs, so
           uploads happen from the dashboard afterwards. */}
@@ -1432,6 +1415,7 @@ function StepFour({
   dailyBase,
   dayCount,
   addOns,
+  perDayAddOns,
   surcharges,
   onAgree,
 }: {
@@ -1443,6 +1427,7 @@ function StepFour({
   dailyBase: number;
   dayCount: number;
   addOns: BookingLineItem[];
+  perDayAddOns: BookingLineItem[][];
   surcharges: BookingLineItem[];
   onAgree: (v: boolean) => void;
 }) {
@@ -1466,8 +1451,8 @@ function StepFour({
     },
     {
       label: "時間",
-      value: `${state.startTime} – ${addMinutes(
-        state.startTime,
+      value: `${TIME_PRESETS.find((p) => p.id === state.slot)?.label ?? "全日 / 待定"} – ${addMinutes(
+        TIME_PRESETS.find((p) => p.id === state.slot)?.start ?? "09:00",
         serviceMeta.durationMinutes,
       )}`,
     },
@@ -1536,26 +1521,31 @@ function StepFour({
               HK${base}
             </dd>
           </div>
-          {addOns.length > 0 && (
+          {perDayAddOns.some((d) => d.length > 0) && (
             <>
               <div className="pt-1 text-xs font-semibold text-text/60">
-                {dayCount > 1 ? `附加服務（每次 × ${dayCount} 天）` : "附加服務"}
+                附加服務（按日計算）
               </div>
-              {addOns.map((item) => (
-                <div key={item.id} className="flex justify-between pl-3">
-                  <dt className="text-text/80">
-                    {item.name}
+              {perDayAddOns.map((items, idx) =>
+                items.length === 0 ? null : (
+                  <div key={idx} className="flex flex-col gap-0.5">
                     {dayCount > 1 && (
-                      <span className="ml-1 text-xs text-text/50">
-                        × {dayCount}
+                      <span className="pl-3 text-xs text-text/50">
+                        第 {idx + 1} 天
                       </span>
                     )}
-                  </dt>
-                  <dd className="text-text/80">
-                    HK${item.price * dayCount}
-                  </dd>
-                </div>
-              ))}
+                    {items.map((item) => (
+                      <div
+                        key={item.id}
+                        className="flex justify-between pl-6"
+                      >
+                        <dt className="text-text/80">{item.name}</dt>
+                        <dd className="text-text/80">HK${item.price}</dd>
+                      </div>
+                    ))}
+                  </div>
+                ),
+              )}
             </>
           )}
           {surcharges.length > 0 && (

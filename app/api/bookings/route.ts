@@ -140,7 +140,12 @@ export async function POST(request: Request) {
   // The main booking record keeps its start/end; when days are provided we
   // populate it from the FIRST day (whose times, if present, are authoritative).
   const daysRaw = root.days;
-  type ParsedDay = { date: string; startTime: Date | null; endTime: Date | null };
+  type ParsedDay = {
+    date: string;
+    startTime: Date | null;
+    endTime: Date | null;
+    addOns: BookingLineItem[];
+  };
   const days: ParsedDay[] = [];
   const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
   if (daysRaw !== undefined && daysRaw !== null) {
@@ -202,7 +207,22 @@ export async function POST(request: Request) {
           { status: 400 },
         );
       }
-      days.push({ date: d.date, startTime: dStart, endTime: dEnd });
+      const dayAddOns = parseLineItems(d.addOns);
+      if (!dayAddOns.ok) {
+        return NextResponse.json(
+          {
+            error:
+              "each day.addOns must be an array of { id, name, price }",
+          },
+          { status: 400 },
+        );
+      }
+      days.push({
+        date: d.date,
+        startTime: dStart,
+        endTime: dEnd,
+        addOns: dayAddOns.items,
+      });
     }
 
     // Populate the main booking times from the first day when it carries times.
