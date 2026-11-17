@@ -6,6 +6,7 @@ import {
   PRICING_COLUMNS,
   SURCHARGES,
   type IncludedCell,
+  slugForService,
 } from "@/components/lib/pricing";
 
 function IncludedMark({ value }: { value: IncludedCell }) {
@@ -35,15 +36,15 @@ export default function Home() {
           dark green end of the gradient. */}
       <section className="grid items-center gap-8 rounded-3xl bg-brand p-6 sm:p-10 md:grid-cols-2">
         <div className="flex flex-col gap-5">
-          <span className="inline-flex w-fit items-center rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-text">
+          <span className="inline-flex w-fit items-center rounded-full bg-card px-3 py-1 text-xs font-semibold text-text">
             香港寵物保姆平台
           </span>
-          <h1 className="text-3xl font-bold leading-tight text-white sm:text-4xl md:text-5xl">
+          <h1 className="text-3xl font-bold leading-tight text-brand-title sm:text-4xl md:text-5xl">
             為你的毛孩
             <br />
             找個可靠的保姆
           </h1>
-          <p className="max-w-md text-base leading-relaxed text-bg/90">
+          <p className="max-w-md text-base leading-relaxed text-brand-subtitle">
             無論係貓定狗，Blackcat.petsitter 都為你配對經驗豐富嘅寵物保姆，
             提供上門照顧、餵食、散步等一站式服務。安心出發，毛孩在家。
           </p>
@@ -56,7 +57,7 @@ export default function Home() {
             </Link>
             <Link
               href="/social"
-              className="rounded-xl bg-white/40 px-6 py-3 text-base font-semibold text-white ring-1 ring-white/50 backdrop-blur-sm transition-colors hover:bg-white/60"
+              className="rounded-xl bg-surface-hover px-6 py-3 text-base font-semibold text-white ring-1 ring-white/50 backdrop-blur-sm transition-colors hover:bg-white/60"
             >
               了解我們
             </Link>
@@ -176,7 +177,7 @@ export default function Home() {
                 {PRICING_COLUMNS.map((col) => (
                   <td key={col.service} className="px-4 py-4 text-center">
                     <Link
-                      href="/book"
+                      href={`/book?service=${slugForService(col.service)}`}
                       className="inline-block rounded-xl bg-primary px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-hover"
                     >
                       預約此服務
@@ -233,7 +234,7 @@ export default function Home() {
                 </ul>
 
                 <Link
-                  href="/book"
+                  href={`/book?service=${slugForService(col.service)}`}
                   className="mt-4 block rounded-xl bg-primary px-5 py-2.5 text-center text-sm font-semibold text-white transition-colors hover:bg-primary-hover"
                 >
                   預約此服務
@@ -310,7 +311,7 @@ export default function Home() {
       </section>
 
       {/* Login Portal */}
-      <section className="mt-12 rounded-3xl bg-card p-6 sm:p-10">
+      <section className="mt-12 rounded-3xl bg-surface-hover p-6 sm:p-10">
         <div className="mx-auto max-w-xl text-center">
           <h2 className="text-2xl font-bold text-text sm:text-3xl">
             登入 / 開始預約
@@ -337,7 +338,7 @@ export default function Home() {
             
             <Link
               href="/book"
-              className="flex items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3 text-base font-semibold text-white transition-colors hover:bg-primary-hover"
+              className="flex items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3 text-base font-semibold text-text ring-1 ring-black/10 transition-colors hover:bg-white/80"
             >
               以訪客身份預約
             </Link>

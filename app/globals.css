@@ -7,22 +7,21 @@
  * follows. Never reference a raw hex in a component — add a token instead.
  */
 @theme {
-  /* Semantic backgrounds */
-  --color-bg: #ffedb9;            /* Page background */
-  --color-surface: #fff8e1;       /* Inputs / cards */
-  --color-surface-hover: #fff3d1; /* Hover tint on surfaces */
-  --color-card: #ffcb56;          /* Highlighted cards */
-  
-  /* Semantic actions */
-  --color-primary: #ffa259;
-  --color-primary-hover: #ff8f3d;
-  /* Semantic text */
-  --color-text: #4a3b32;          /* Primary text */
-  --color-text-muted: rgba(74, 59, 50, 0.7);
-  /* Brand gradient — `bg-brand` */
-  --background-image-brand: linear-gradient(
-    #6a5b52
-  );
+    /* Semantic backgrounds */
+    --color-bg: #fce6e6;            /* Page background */
+    --color-surface: #f9d7d5;       /* Inputs / cards */
+    --color-surface-hover: #f3c1c7; /* Hover tint on surfaces */
+    --color-card: #ba7f85;          /* Highlighted cards / Semantic actions */
+    /* Semantic actions */
+    --color-primary: #ba7f85;     
+    --color-primary-hover: #a66b71;
+    /* Semantic text */
+    --color-text: #000000;          /* Primary text */
+    --color-text-muted: #222222;
+    /* Brand gradient — bg-brand */
+    --background-image-brand: linear-gradient(#ffffff);
+    --color-brand-title: #000000;
+	--color-brand-subtitle: #000000;
 }
 
 :root {

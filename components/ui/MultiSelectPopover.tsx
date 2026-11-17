@@ -18,6 +18,12 @@ interface MultiSelectPopoverProps {
   emptyLabel?: string;
   /** Accessible label for the trigger (e.g. "第 2 天附加服務"). */
   ariaLabel: string;
+  /**
+   * Options sharing a prefix are mutually exclusive: picking one deselects
+   * the others. Used for the pill-feeding tiers, where exactly one quantity
+   * band can apply to a visit.
+   */
+  exclusivePrefix?: string;
 }
 
 /**
@@ -33,6 +39,7 @@ export function MultiSelectPopover({
   onChange,
   emptyLabel = "無添加",
   ariaLabel,
+  exclusivePrefix = "pillFeeding",
 }: MultiSelectPopoverProps) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -57,12 +64,24 @@ export function MultiSelectPopover({
     };
   }, [open]);
 
+  /** True when `id` belongs to the mutually-exclusive group. */
+  const inGroup = (id: string) => id.startsWith(exclusivePrefix);
+
+  /**
+   * Deselect: just drop the id.
+   * Select: if the id is in the exclusive group, every other group member is
+   * filtered out FIRST, so the new one lands alone. Unrelated add-ons pass
+   * through untouched. Derived from the `selected` prop (parent state) so
+   * there is a single source of truth.
+   */
   const toggle = (id: string) => {
     if (selected.includes(id)) {
       onChange(selected.filter((s) => s !== id));
-    } else {
-      onChange([...selected, id]);
+      return;
     }
+    const base = inGroup(id) ? selected.filter((s) => !inGroup(s)) : selected;
+    const next = [...base, id];
+    onChange(next);
   };
 
   const clearAll = () => onChange([]);

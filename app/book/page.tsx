@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 import { Stepper, type StepperStep } from "@/components/Stepper";
 import { Modal } from "@/components/Modal";
@@ -23,6 +24,7 @@ import {
   SERVICE_META,
   SERVICE_TYPES,
   type ServiceType,
+  serviceFromSlug,
 } from "@/components/lib/pricing";
 
 const STEPS: StepperStep[] = [
@@ -98,8 +100,12 @@ interface WizardState {
   addOns: SelectedAddOns;
 }
 
-const INITIAL_STATE: WizardState = {
-  serviceType: "Cat Sitting (Standard)",
+/**
+ * Fresh wizard state. `serviceType` is seeded from the Home Page pricing
+ * table via `?service=<slug>`, falling back to Cat Sitting (Standard).
+ */
+const makeInitialState = (serviceType: ServiceType): WizardState => ({
+  serviceType,
   date: "",
   slot: "",
   extraDays: [],
@@ -121,7 +127,7 @@ const INITIAL_STATE: WizardState = {
   petNotes: "",
   agreed: false,
   addOns: {},
-};
+});
 
 const isCatService = (s: ServiceType) => SERVICE_META[s].petType === "cat";
 
@@ -145,9 +151,56 @@ const PHONE_RE = /^\d{8}$/;
 const DOG_WEIGHT_MIN = 5;
 const DOG_WEIGHT_MAX = 80;
 
+/**
+ * `useSearchParams()` suspends during prerender, so it must sit inside a
+ * Suspense boundary — the outer component is what Next.js renders statically.
+ */
 export default function BookPage() {
+  return (
+    <Suspense fallback={<WizardFallback />}>
+      <BookingWizard />
+    </Suspense>
+  );
+}
+
+function WizardFallback() {
+  return (
+    <main className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 sm:py-12">
+      <h1 className="text-2xl font-bold text-text sm:text-3xl">預約寵物保姆</h1>
+      <p className="mt-4 text-sm text-text/60">載入中⋯</p>
+    </main>
+  );
+}
+
+function BookingWizard() {
+  const searchParams = useSearchParams();
+  // ?service=dog_sitting | cat_standard | cat_express. Unknown/missing values
+  // fall back to Cat Sitting (Standard).
+  const serviceParam = searchParams.get("service");
+
   const [step, setStep] = useState(1);
-  const [state, setState] = useState<WizardState>(INITIAL_STATE);
+  const [state, setState] = useState<WizardState>(() =>
+    makeInitialState(serviceFromSlug(serviceParam)),
+  );
+
+  /**
+   * `useSearchParams()` can hand back an empty result on the first render
+   * inside a Suspense boundary, which would freeze the seed at the fallback.
+   * Re-sync whenever the param becomes available or changes — but only while
+   * the user is still on step 1, so a late param load never overwrites a
+   * choice they have since made by hand.
+   */
+  useEffect(() => {
+    if (!serviceParam) return;
+    const resolved = serviceFromSlug(serviceParam);
+    setState((prev) =>
+      prev.serviceType === resolved
+        ? prev
+        : { ...prev, serviceType: resolved },
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- step is a trigger
+    // only; re-running on every step change would clobber a manual selection.
+  }, [serviceParam]);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [successId, setSuccessId] = useState<string | null>(null);
@@ -328,7 +381,7 @@ export default function BookPage() {
    * set and the success modal reappears.
    */
   const resetWizard = () => {
-    setState(INITIAL_STATE);
+    setState(makeInitialState(serviceFromSlug(serviceParam)));
     setStep(1);
     setSuccessId(null);
     setSubmitError(null);

@@ -62,7 +62,7 @@ export default function LoginPage() {
 
           <Link
             href="/book"
-            className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm font-semibold text-text transition-colors hover:bg-gray-50"
+            className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl border border-gray-300 bg-primary px-4 py-3 text-sm font-semibold text-text transition-colors hover:bg-gray-50"
           >
             <span className="text-xs font-normal text-black">
               以訪客身份繼續

@@ -12,6 +12,40 @@ export const SERVICE_TYPES = [
 
 export type ServiceType = (typeof SERVICE_TYPES)[number];
 
+/**
+ * URL slugs for each service, used by `?service=` links from the Home Page
+ * pricing table. Kept next to SERVICE_TYPES so the two can't drift.
+ */
+export const SERVICE_SLUGS: Record<ServiceType, string> = {
+  "Dog Sitting": "dog_sitting",
+  "Cat Sitting (Standard)": "cat_standard",
+  "Cat Sitting (Express)": "cat_express",
+};
+
+const SLUG_TO_SERVICE: Record<string, ServiceType> = Object.fromEntries(
+  (Object.keys(SERVICE_SLUGS) as ServiceType[]).map((s) => [
+    SERVICE_SLUGS[s],
+    s,
+  ]),
+);
+
+/**
+ * Resolve a `?service=` value to a ServiceType, falling back to
+ * Cat Sitting (Standard) when the param is missing or unrecognised.
+ */
+export function serviceFromSlug(
+  slug: string | null | undefined,
+  fallback: ServiceType = "Cat Sitting (Standard)",
+): ServiceType {
+  if (!slug) return fallback;
+  return SLUG_TO_SERVICE[slug.trim().toLowerCase()] ?? fallback;
+}
+
+/** Inverse of `serviceFromSlug` — the `?service=` value for a service. */
+export function slugForService(service: ServiceType): string {
+  return SERVICE_SLUGS[service];
+}
+
 export const MAX_CATS = 5;
 
 export interface ServiceMeta {
@@ -242,7 +276,9 @@ export function buildSurchargesForDays(
 }
 
 /** Dogs at or above this weight fall into the heavier price band. */
-export const DOG_HEAVY_WEIGHT_KG = 15;/** Cats included in the base fee; every cat beyond this is +$20. */
+export const DOG_HEAVY_WEIGHT_KG = 15;
+
+/** Cats included in the base fee; every cat beyond this is +$20. */
 export const CATS_INCLUDED_IN_BASE = 2;
 export const EXTRA_CAT_FEE = 20;
 
